@@ -3,6 +3,7 @@
 import pytest
 
 from domain.greeting_record import GreetingRecord
+from usecase.errors import GreetingNotFoundError
 from usecase.greeting_crud_port import GreetingCrudPort
 from usecase.manage_greetings_usecase import ManageGreetingsUseCase
 
@@ -23,10 +24,14 @@ class FakeGreetingCrudPort(GreetingCrudPort):
         return GreetingRecord(self._sequence, message)
 
     def update(self, greeting_id: int, message: str) -> None:
+        if greeting_id not in self._items:
+            raise GreetingNotFoundError(f"id={greeting_id} の挨拶が見つかりません")
         self._items[greeting_id] = message
 
     def delete(self, greeting_id: int) -> None:
-        self._items.pop(greeting_id, None)
+        if greeting_id not in self._items:
+            raise GreetingNotFoundError(f"id={greeting_id} の挨拶が見つかりません")
+        del self._items[greeting_id]
 
 
 def test_create_then_list_returns_record():
@@ -84,3 +89,17 @@ def test_update_rejects_too_long_message():
 
     with pytest.raises(ValueError):
         usecase.update_greeting(1, "A" * 256)
+
+
+def test_update_unknown_id_raises_not_found():
+    usecase = ManageGreetingsUseCase(FakeGreetingCrudPort())
+
+    with pytest.raises(GreetingNotFoundError):
+        usecase.update_greeting(999, "Updated")
+
+
+def test_delete_unknown_id_raises_not_found():
+    usecase = ManageGreetingsUseCase(FakeGreetingCrudPort())
+
+    with pytest.raises(GreetingNotFoundError):
+        usecase.delete_greeting(999)

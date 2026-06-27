@@ -3,8 +3,12 @@
 ポート経由で永続化層を操作し、入力の最小バリデーション（空文字禁止）を行う。
 """
 
+import logging
+
 from domain.greeting_record import GreetingRecord
 from usecase.greeting_crud_port import GreetingCrudPort
+
+logger = logging.getLogger(__name__)
 
 # greetings.message は VARCHAR(255)。DB 制約に到達する前にアプリ側で弾く。
 MAX_MESSAGE_LENGTH = 255
@@ -22,23 +26,30 @@ class ManageGreetingsUseCase:
 
     def create_greeting(self, message: str) -> GreetingRecord:
         """挨拶を作成する。空メッセージは拒否する。"""
-        return self._port.create(self._require_message(message))
+        record = self._port.create(self._require_message(message))
+        logger.info("挨拶を作成 id=%s message_len=%d", record.id, len(record.message))
+        return record
 
     def update_greeting(self, greeting_id: int, message: str) -> None:
         """指定 id の挨拶を更新する。空メッセージは拒否する。"""
-        self._port.update(greeting_id, self._require_message(message))
+        normalized = self._require_message(message)
+        self._port.update(greeting_id, normalized)
+        logger.info("挨拶を更新 id=%s message_len=%d", greeting_id, len(normalized))
 
     def delete_greeting(self, greeting_id: int) -> None:
         """指定 id の挨拶を削除する。"""
         self._port.delete(greeting_id)
+        logger.info("挨拶を削除 id=%s", greeting_id)
 
     @staticmethod
     def _require_message(message: str) -> str:
         """前後空白を除去し、空文字・長さ超過なら ValueError を送出する。"""
         normalized = message.strip()
         if not normalized:
+            logger.debug("バリデーション拒否: 空メッセージ")
             raise ValueError("メッセージは空にできません")
         if len(normalized) > MAX_MESSAGE_LENGTH:
+            logger.debug("バリデーション拒否: 長さ超過 len=%d", len(normalized))
             raise ValueError(
                 f"メッセージは {MAX_MESSAGE_LENGTH} 文字以内にしてください"
             )

@@ -5,7 +5,7 @@
 """
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -15,7 +15,8 @@ class MySQLConfig:
     host: str
     port: int
     user: str
-    password: str
+    # repr/ログ出力に展開させず、パスワード漏洩を構造的に防ぐ。
+    password: str = field(repr=False)
     database: str
 
     @classmethod

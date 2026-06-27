@@ -1,5 +1,5 @@
 # MySQL（db）+ Streamlit アプリ（app）を一括起動する構成。
-# app は db のヘルスチェック成功後に起動し、MySQL から挨拶メッセージを読む。
+# app は db のヘルスチェック成功後に起動し、MySQL の greetings テーブルを CRUD する。
 services:
   db:
     image: mysql:8.4
@@ -23,7 +23,6 @@ services:
   app:
     build: .
     environment:
-      GREETING_BACKEND: mysql
       MYSQL_HOST: db
       MYSQL_PORT: "3306"
       MYSQL_USER: app
