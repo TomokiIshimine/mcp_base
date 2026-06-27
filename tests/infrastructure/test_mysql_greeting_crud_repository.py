@@ -7,6 +7,7 @@ lastrowid に基づく分岐である。実 MySQL を立てず、PooledDB をフ
 
 import pymysql
 import pytest
+from dbutils.pooled_db import TooManyConnectionsError
 
 from domain.greeting_record import GreetingRecord
 from infrastructure.mysql_greeting_crud_repository import MySQLGreetingCrudRepository
@@ -96,6 +97,8 @@ def _make_repository(pool: _FakePool) -> MySQLGreetingCrudRepository:
     """
     repository = MySQLGreetingCrudRepository.__new__(MySQLGreetingCrudRepository)
     repository._pool = pool
+    # 枯渇待ちの上限を 0 にし、待機リトライ（sleep）を挟まず即時に判定させる。
+    repository._acquire_timeout_seconds = 0.0
     return repository
 
 
@@ -180,6 +183,40 @@ def test_connection_acquire_failure_translates_to_repository_error():
 
     with pytest.raises(RepositoryError):
         repository.list_all()
+
+
+def test_pool_exhaustion_translates_to_repository_error():
+    # blocking=False のプールは枯渇時に TooManyConnectionsError を送出する。
+    # 待機上限（テストでは 0 秒）を超えたら無制限待機せず混雑エラーへ翻訳する。
+    pool = _FakePool(connect_error=TooManyConnectionsError())
+    repository = _make_repository(pool)
+
+    with pytest.raises(RepositoryError):
+        repository.list_all()
+
+
+def test_pool_acquire_retries_until_connection_frees_up():
+    # 枯渇しても待機上限内で空きが出れば回復する（混雑エラーにしない）猶予待ち経路。
+    cursor = _FakeCursor(rows=[{"id": 1, "message": "a"}])
+    connection = _FakeConnection(cursor)
+
+    class _BusyThenFreePool:
+        """初回だけ枯渇し、2 回目で接続を払い出すプール。"""
+
+        def __init__(self) -> None:
+            self._calls = 0
+
+        def connection(self) -> _FakeConnection:
+            self._calls += 1
+            if self._calls == 1:
+                raise TooManyConnectionsError()
+            return connection
+
+    repository = _make_repository(_BusyThenFreePool())
+    # 待機上限を設けて、1 度のポーリング後の回復を許容する。
+    repository._acquire_timeout_seconds = 1.0
+
+    assert repository.list_all() == [GreetingRecord(1, "a")]
 
 
 @pytest.mark.parametrize(

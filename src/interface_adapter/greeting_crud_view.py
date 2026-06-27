@@ -20,30 +20,40 @@ def render_crud(controller: GreetingCrudController) -> None:
     st.title("Greetings CRUD")
     st.caption("MySQL の greetings テーブルを操作します。")
 
-    try:
-        rows = controller.list_all()
-    except InvalidOperationError as error:
-        st.warning(str(error))
-        return
-    except SystemFailureError as error:
-        st.error(str(error))
-        return
-
-    _render_list(rows)
+    # 一覧取得が失敗しても作成フォームは描画する。DB 一時障害で一覧が引けない時に
+    # 入力系まで巻き込んで「何もできない」状態を避ける（失敗を一覧に閉じ込める）。
+    rows = _load_and_render_list(controller)
     _render_create_form(controller)
+    # update/delete は対象 id を要するため、一覧取得に成功し件数がある時のみ描画する。
     if rows:
         ids = [row.id for row in rows]
         _render_update_form(controller, rows, ids)
         _render_delete(controller, ids)
 
 
-def _render_list(rows: list[GreetingView]) -> None:
-    """挨拶の一覧を表示する。"""
+def _load_and_render_list(
+    controller: GreetingCrudController,
+) -> list[GreetingView] | None:
+    """挨拶の一覧を取得して表示する。
+
+    取得失敗は原因別に提示し（利用者起因は警告／システム障害はエラー）、None を
+    返す。呼び出し側は None と空リストを区別でき、失敗時は作成フォームのみ描画する。
+    """
     st.subheader("一覧")
+    try:
+        rows = controller.list_all()
+    except InvalidOperationError as error:
+        st.warning(str(error))
+        return None
+    except SystemFailureError as error:
+        st.error(str(error))
+        return None
+
     if rows:
         st.table([{"id": row.id, "message": row.message} for row in rows])
     else:
         st.info("レコードがありません。下のフォームから作成してください。")
+    return rows
 
 
 def _render_create_form(controller: GreetingCrudController) -> None:
