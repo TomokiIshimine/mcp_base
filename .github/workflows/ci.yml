@@ -1,0 +1,131 @@
+# CI: 品質ゲート（整形/lint/型/軽量テスト）・セキュリティ・統合テストを自動実行する。
+# 実行は Docker/make を介さず uv で直接行う（CI 上では高速・標準的なため。
+# ローカルの make 系は従来どおり Docker 上で動く別経路）。
+#
+# 軽量テスト（DB 不要）は push / PR の都度。実 MySQL を要する重い統合テストは
+# PR 作成時のみ（service container を用意して）実行する。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 同一参照で新しい push が来たら進行中の実行を打ち切り、無駄な並列を避ける。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # .python-version（3.12）に従い、ロックファイルどおりの依存を再現する。
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      # 整形は CI では書き戻さず差分検出のみ（崩れていれば失敗させる）。
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Type check
+        run: uv run mypy
+
+      # addopts により integration マーカーは除外され、軽量テストのみ実行される。
+      - name: Test (light)
+        run: uv run pytest
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      # 依存ライブラリの既知脆弱性。検出時はビルドを失敗させる（ゲートとして機能）。
+      - name: Audit dependencies (pip-audit)
+        run: uv run pip-audit
+
+      # コードの危険パターン検出（SAST）。
+      - name: Scan code (bandit)
+        run: uv run bandit -c pyproject.toml -r src app.py
+
+  integration:
+    # 重い統合テストは PR 作成時のみ実行する。
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: "3306"
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app_password
+      MYSQL_DATABASE: app_db
+      MYSQL_ROOT_PASSWORD: root_password
+    services:
+      mysql:
+        image: mysql:8.4
+        # CI 専用のテスト資格情報（秘匿ではない）。本番値とは無関係。
+        env:
+          MYSQL_ROOT_PASSWORD: root_password
+          MYSQL_DATABASE: app_db
+          MYSQL_USER: app
+          MYSQL_PASSWORD: app_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -proot_password"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      # service container はボリューム初期化（docker-entrypoint-initdb.d）を使えないため、
+      # 同じ schema を pymysql 経由で適用する（mysql クライアント非依存）。
+      - name: Apply schema
+        run: |
+          uv run python - <<'PY'
+          import os
+          import pymysql
+
+          sql = open("db/init/01_schema.sql", encoding="utf-8").read()
+          connection = pymysql.connect(
+              host=os.environ["MYSQL_HOST"],
+              port=int(os.environ["MYSQL_PORT"]),
+              user="root",
+              password=os.environ["MYSQL_ROOT_PASSWORD"],
+              database=os.environ["MYSQL_DATABASE"],
+              autocommit=True,
+          )
+          with connection.cursor() as cursor:
+              for statement in filter(str.strip, sql.split(";")):
+                  cursor.execute(statement)
+          connection.close()
+          PY
+
+      - name: Test (integration)
+        run: uv run pytest -m integration --no-cov

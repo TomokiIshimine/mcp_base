@@ -1,13 +1,19 @@
 # MySQL（db）+ Streamlit アプリ（app）を一括起動する構成。
 # app は db のヘルスチェック成功後に起動し、MySQL の greetings テーブルを CRUD する。
+#
+# 資格情報は本ファイルに直書きせず、.env から補間する（平文秘匿の追跡を避ける）。
+# db のパスワードは ${VAR:?...} で必須化し、未設定なら全 compose コマンドを即エラーに
+# する（.env の用意を促す fail-fast）。app/tooling 側はリテラル既定を置かず参照のみ。
+# 非秘匿の項目（USER/DATABASE/HOST/PORT）は ${VAR:-default} でローカル既定を許容する。
+# 利用前に `cp .env.example .env` を実行すること。
 services:
   db:
     image: mysql:8.4
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: app_db
-      MYSQL_USER: app
-      MYSQL_PASSWORD: app_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:? .env に MYSQL_ROOT_PASSWORD を設定してください}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-app_db}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:? .env に MYSQL_PASSWORD を設定してください}
     ports:
       # ホスト側は既存 MySQL との衝突回避のため 3307。コンテナ間は db:3306 で通信する。
       - "3307:3306"
@@ -15,23 +21,61 @@ services:
       - db_data:/var/lib/mysql
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
+      # コンテナ内に注入された root パスワードで疎通確認する（$$ は compose 上のエスケープ）。
+      test:
+        ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p\"$$MYSQL_ROOT_PASSWORD\""]
       interval: 5s
       timeout: 5s
       retries: 20
 
   app:
-    build: .
+    build:
+      context: .
+      # dev 依存を含まない非 root の本番ステージを使う。
+      target: production
     environment:
-      MYSQL_HOST: db
-      MYSQL_PORT: "3306"
-      MYSQL_USER: app
-      MYSQL_PASSWORD: app_password
-      MYSQL_DATABASE: app_db
+      MYSQL_HOST: ${MYSQL_HOST:-db}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      # db 側の :? で .env を強制済みのため、ここはリテラル既定を置かず参照のみ。
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-app_db}
       # 予期せぬ例外時にスタックトレースを画面表示しない（情報露出抑止）
       STREAMLIT_CLIENT_SHOW_ERROR_DETAILS: none
     ports:
       - "8501:8501"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Streamlit の死活エンドポイントを叩く。curl 不在の slim イメージのため python で確認。
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3).status==200 else 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # fmt/lint/test を実行するツール専用イメージ（ruff/pytest/mypy 等を含む dev ステージ）。
+  # profiles を付けて通常の `docker compose up` からは除外し、make の各ターゲットの
+  # `docker compose run` からのみ起動する。ソースは実行時に bind mount する。
+  # 統合テスト（make test-integration）では --no-deps を外して db を起動・待機する。
+  tooling:
+    build:
+      context: .
+      target: dev
+    profiles: ["tooling"]
+    environment:
+      MYSQL_HOST: ${MYSQL_HOST:-db}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-app_db}
     depends_on:
       db:
         condition: service_healthy

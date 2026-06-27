@@ -3,16 +3,23 @@ name = "mcp-base"
 version = "0.1.0"
 description = "Hello World Streamlit app structured with Clean Architecture 4 layers."
 requires-python = ">=3.12"
+# 脆弱性対応のため、直接依存はすべて厳密な == で固定する（再現性と監査性を優先）。
+# 推移的依存は uv.lock で固定。更新は意図的に == を引き上げて行う。
 dependencies = [
-    "streamlit>=1.0",
-    "PyMySQL>=1.0",
-    "dbutils>=3.0",
+    "streamlit==1.58.0",
+    "PyMySQL==1.2.0",
+    "dbutils==3.1.2",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0",
-    "ruff>=0.6",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.15.20",
+    "mypy==2.1.0",
+    # セキュリティチェック: 依存の既知脆弱性（pip-audit）とコードの危険パターン（bandit）。
+    "pip-audit==2.9.0",
+    "bandit==1.8.6",
 ]
 
 [build-system]
@@ -33,9 +40,45 @@ target-version = "py312"
 
 [tool.ruff.lint]
 # pycodestyle の整形系ルール（E1xx/E2xx/E3xx）は ruff format に委ね二重指摘を避ける。
-# formatter と衝突しない論理系サブセット（E4/E7/E9）＋pyflakes（F）＋import 整列（I）に限定する。
-select = ["E4", "E7", "E9", "F", "I"]
+# 論理系の pycodestyle サブセット（E4/E7/E9）＋pyflakes（F）＋import 整列（I）を土台に、
+# バグ検出（B: flake8-bugbear）・構文の近代化（UP: pyupgrade）・簡素化（SIM:
+# flake8-simplify）・ruff 固有（RUF）を加えて品質を底上げする。
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "SIM", "RUF"]
+# RUF001/002/003 は全角の日本語句読点（（）：等）を曖昧文字として警告するが、
+# 本プロジェクトは日本語コメント/docstring を意図的に多用する方針のため無効化する。
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.mypy]
+python_version = "3.12"
+# src レイアウト（PYTHONPATH=src 相当）に合わせ、infrastructure 等を解決させる。
+mypy_path = "src"
+# 検査対象は本体コード（src）と合成ルート（app.py）に絞る。テストはフェイク/スタブを
+# 名目型に一致させない設計（duck typing）で、strict の nominal 検査と相性が悪いため
+# 対象外とする。型の品質保証は本体コードで担保する。
+files = ["src", "app.py"]
+# 自前コードは型を厳密に検査する（型ヒントは丁寧に付いている前提）。
+strict = true
+
+# 型スタブを提供しない外部ライブラリは import 解決の失敗を許容する。
+[[tool.mypy.overrides]]
+module = ["streamlit", "pymysql.*", "dbutils.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+# 既定では軽量テスト（DB 不要）のみ実行する。実 MySQL を要する重いテストは
+# integration マーカーで分離し、明示時のみ（make test-integration / PR の CI）走らせる。
+# 計測対象はソースの 4 層が並ぶ src/。未到達行を term-missing で明示する。
+addopts = "--cov=src --cov-report=term-missing -m 'not integration'"
+markers = [
+    "integration: 実 MySQL を必要とする統合テスト（既定の軽量実行からは除外）",
+]
+
+[tool.coverage.run]
+# 計測はソース本体のみ。テスト自身は対象外にしてノイズを除く。
+omit = ["tests/*"]
+
+[tool.bandit]
+# テストはフェイク/アサーション主体でセキュリティ評価の対象外。
+exclude_dirs = ["tests"]

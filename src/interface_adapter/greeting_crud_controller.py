@@ -28,10 +28,16 @@ class GreetingView(NamedTuple):
     位置で展開する素のタプルではなく、id／message を名前で参照できるようにして
     view 側の可読性を確保する。domain の GreetingRecord とは異なり、表示境界
     （interface_adapter）の都合に閉じた DTO。
+
+    GreetingRecord と構造が重なるが、これは意図的な境界 DTO であり「重複」では
+    ない。両者は変更理由が異なり（domain は永続化の都合、View は表示の都合）、
+    表示要件が増えても domain を汚さずこちら側だけで対応できるよう分離している。
+    安易に統合しないこと。
     """
 
     id: int
     message: str
+
 
 # 利用者起因の失敗。バリデーション失敗（ValueError）・対象不在（NotFound）・DB 制約
 # 違反（InvalidGreetingError）を、再操作で直り得る InvalidOperationError へ翻訳する。
