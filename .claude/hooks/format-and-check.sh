@@ -52,10 +52,14 @@ if ! lint_out="$("$RUFF" check "$file" 2>&1)"; then
 fi
 
 # 4) 型検査は mypy の設定対象（src 配下）のファイルのみ実行する。
+# mypy の設定探索は CWD 基準で上方探索しないため、CWD がリポジトリ外だと
+# pyproject.toml を取りこぼし strict 等が無効化される。--config-file で明示し、
+# CWD に依存せず CI（make typecheck）と同じ設定で検査する。
 case "$file" in
   */src/*|src/*)
     if [ -x "$MYPY" ]; then
-      if ! mypy_out="$(MYPYPATH="$ROOT/src" "$MYPY" "$file" 2>&1)"; then
+      if ! mypy_out="$(MYPYPATH="$ROOT/src" "$MYPY" \
+          --config-file "$ROOT/pyproject.toml" "$file" 2>&1)"; then
         errors+="[mypy] 型エラーがあります:\n${mypy_out}\n"
       fi
     fi
