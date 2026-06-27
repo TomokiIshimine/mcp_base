@@ -1,0 +1,41 @@
+# lint / format 検証 / テストを CI で自動実行する安全網。
+# リファクタリング中の回帰（整形崩れ・lint 違反・テスト失敗）を push / PR の都度検知する。
+# 実行は Docker/make を介さず uv で直接行う（CI 上では高速・標準的なため。
+# ローカルの make fmt/lint/test は従来どおり Docker 上で動く別経路）。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 同一参照で新しい push が来たら進行中の実行を打ち切り、無駄な並列を避ける。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # .python-version（3.12）に従い、ロックファイルどおりの依存を再現する。
+      - name: Sync dependencies
+        run: uv sync --frozen
+
+      # 整形は CI では書き戻さず差分検出のみ（崩れていれば失敗させる）。
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Lint
+        run: uv run ruff check .
+
+      # pyproject の addopts によりカバレッジも併せて計測・表示される。
+      - name: Test
+        run: uv run pytest

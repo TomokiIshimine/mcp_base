@@ -33,6 +33,7 @@ class GreetingView(NamedTuple):
     id: int
     message: str
 
+
 # 利用者起因の失敗。バリデーション失敗（ValueError）・対象不在（NotFound）・DB 制約
 # 違反（InvalidGreetingError）を、再操作で直り得る InvalidOperationError へ翻訳する。
 _USER_ERRORS = (ValueError, GreetingNotFoundError, InvalidGreetingError)
