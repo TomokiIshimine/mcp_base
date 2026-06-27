@@ -105,11 +105,19 @@ class MySQLGreetingCrudRepository(GreetingCrudPort):
                 "UPDATE greetings SET message = %s WHERE id = %s",
                 (message, greeting_id),
             )
-            if cursor.rowcount == 0:
-                raise GreetingNotFoundError(f"id={greeting_id} の挨拶が見つかりません")
+            self._ensure_affected(cursor, greeting_id)
 
     def delete(self, greeting_id: int) -> None:
         with self._cursor() as cursor:
             cursor.execute("DELETE FROM greetings WHERE id = %s", (greeting_id,))
-            if cursor.rowcount == 0:
-                raise GreetingNotFoundError(f"id={greeting_id} の挨拶が見つかりません")
+            self._ensure_affected(cursor, greeting_id)
+
+    @staticmethod
+    def _ensure_affected(cursor: pymysql.cursors.Cursor, greeting_id: int) -> None:
+        """直前の操作が 0 行なら、対象不在として GreetingNotFoundError を送出する。
+
+        update／delete はいずれも「id 一致行への作用」であり、影響行 0 は
+        対象が存在しなかったことを意味する。両者で同じ判定を共有する。
+        """
+        if cursor.rowcount == 0:
+            raise GreetingNotFoundError(f"id={greeting_id} の挨拶が見つかりません")

@@ -7,7 +7,7 @@ usecase 層の業務例外は OperationError へ翻訳し、view へドライバ
 
 import logging
 from collections.abc import Callable
-from typing import TypeVar
+from typing import NamedTuple, TypeVar
 
 from interface_adapter.errors import InvalidOperationError, SystemFailureError
 from usecase.errors import (
@@ -21,6 +21,18 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+
+class GreetingView(NamedTuple):
+    """view へ渡す挨拶 1 件の表示用データ。
+
+    位置で展開する素のタプルではなく、id／message を名前で参照できるようにして
+    view 側の可読性を確保する。domain の GreetingRecord とは異なり、表示境界
+    （interface_adapter）の都合に閉じた DTO。
+    """
+
+    id: int
+    message: str
+
 # 利用者起因の失敗。バリデーション失敗（ValueError）・対象不在（NotFound）・DB 制約
 # 違反（InvalidGreetingError）を、再操作で直り得る InvalidOperationError へ翻訳する。
 _USER_ERRORS = (ValueError, GreetingNotFoundError, InvalidGreetingError)
@@ -32,10 +44,17 @@ class GreetingCrudController:
     def __init__(self, usecase: ManageGreetingsUseCase) -> None:
         self._usecase = usecase
 
-    def list_all(self) -> list[tuple[int, str]]:
-        """全挨拶を (id, message) のタプル列で返す。"""
+    def list_all(self) -> list[GreetingView]:
+        """全挨拶を表示用データ列で返す。
+
+        一覧取得では利用者起因の失敗（入力不正・対象不在）は発生しないが、
+        永続化失敗（RepositoryError）は起こり得る。これを SystemFailureError へ
+        翻訳して view に伝えるため、他の操作と同じく _run を通す。
+        """
         return self._run(
-            lambda: [(r.id, r.message) for r in self._usecase.list_greetings()]
+            lambda: [
+                GreetingView(r.id, r.message) for r in self._usecase.list_greetings()
+            ]
         )
 
     def create(self, message: str) -> None:

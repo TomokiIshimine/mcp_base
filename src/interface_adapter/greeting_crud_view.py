@@ -9,7 +9,10 @@ from collections.abc import Callable
 import streamlit as st
 
 from interface_adapter.errors import InvalidOperationError, SystemFailureError
-from interface_adapter.greeting_crud_controller import GreetingCrudController
+from interface_adapter.greeting_crud_controller import (
+    GreetingCrudController,
+    GreetingView,
+)
 
 
 def render_crud(controller: GreetingCrudController) -> None:
@@ -29,15 +32,16 @@ def render_crud(controller: GreetingCrudController) -> None:
     _render_list(rows)
     _render_create_form(controller)
     if rows:
-        _render_update_form(controller, rows)
-        _render_delete(controller, rows)
+        ids = [row.id for row in rows]
+        _render_update_form(controller, rows, ids)
+        _render_delete(controller, ids)
 
 
-def _render_list(rows: list[tuple[int, str]]) -> None:
+def _render_list(rows: list[GreetingView]) -> None:
     """挨拶の一覧を表示する。"""
     st.subheader("一覧")
     if rows:
-        st.table([{"id": gid, "message": message} for gid, message in rows])
+        st.table([{"id": row.id, "message": row.message} for row in rows])
     else:
         st.info("レコードがありません。下のフォームから作成してください。")
 
@@ -53,11 +57,12 @@ def _render_create_form(controller: GreetingCrudController) -> None:
 
 
 def _render_update_form(
-    controller: GreetingCrudController, rows: list[tuple[int, str]]
+    controller: GreetingCrudController,
+    rows: list[GreetingView],
+    ids: list[int],
 ) -> None:
     """更新フォームを描画する。rows が空でないことを前提とする。"""
-    ids = [gid for gid, _ in rows]
-    message_by_id = {gid: message for gid, message in rows}
+    message_by_id = {row.id: row.message for row in rows}
 
     st.subheader("更新")
     update_id = st.selectbox("更新する id", ids, key="update_id")
@@ -72,12 +77,8 @@ def _render_update_form(
             st.rerun()
 
 
-def _render_delete(
-    controller: GreetingCrudController, rows: list[tuple[int, str]]
-) -> None:
-    """削除 UI を描画する。rows が空でないことを前提とする。"""
-    ids = [gid for gid, _ in rows]
-
+def _render_delete(controller: GreetingCrudController, ids: list[int]) -> None:
+    """削除 UI を描画する。ids が空でないことを前提とする。"""
     st.subheader("削除")
     delete_id = st.selectbox("削除する id", ids, key="delete_id")
     if st.button("削除") and _guard(controller.delete, delete_id):
