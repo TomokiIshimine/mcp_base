@@ -1,0 +1,19 @@
+# Python virtual environment
+.venv/
+
+# Python bytecode caches
+__pycache__/
+*.pyc
+
+# Test / lint tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Local environment file (実体。.env.example のみ追跡する)
+.env
+
+# Claude Code のローカル設定（マシン固有）
+.claude/settings.local.json
+
+# bootstrap ワークフローの作業生成物（設計書・レビュー記録など）
+tasks/

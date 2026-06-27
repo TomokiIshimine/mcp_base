@@ -1,0 +1,41 @@
+# MySQL（db）+ Streamlit アプリ（app）を一括起動する構成。
+# app は db のヘルスチェック成功後に起動し、MySQL から挨拶メッセージを読む。
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: app_db
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app_password
+    ports:
+      # ホスト側は既存 MySQL との衝突回避のため 3307。コンテナ間は db:3306 で通信する。
+      - "3307:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot_password"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    environment:
+      GREETING_BACKEND: mysql
+      MYSQL_HOST: db
+      MYSQL_PORT: "3306"
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app_password
+      MYSQL_DATABASE: app_db
+      # 予期せぬ例外時にスタックトレースを画面表示しない（情報露出抑止）
+      STREAMLIT_CLIENT_SHOW_ERROR_DETAILS: none
+    ports:
+      - "8501:8501"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data:
