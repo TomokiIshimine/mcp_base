@@ -1,7 +1,7 @@
 """ログ出力の初期化（infrastructure 層）。
 
 ログのレベル・フォーマット・出力先という外界の詳細をここに閉じ込め、合成ルート
-（app.py）から 1 回だけ呼び出す。各層は logging.getLogger(__name__) でロガーを
+（src/app.py）から 1 回だけ呼び出す。各層は logging.getLogger(__name__) でロガーを
 取得するだけで、設定方法を知らない。
 """
 

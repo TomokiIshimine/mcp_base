@@ -1,8 +1,8 @@
 """Streamlit エントリポイント（DI 合成ルート）。
 
-依存配線のみを担い、画面描画・ビジネスロジックは src/ の 4 層に委譲する。
+依存配線のみを担い、画面描画・ビジネスロジックは同じ src/ 配下の 4 層に委譲する。
 MySQL の greetings テーブルに対する CRUD 画面を描画する。
-`streamlit run app.py` で起動する。
+`streamlit run src/app.py` で起動する。
 """
 
 import logging

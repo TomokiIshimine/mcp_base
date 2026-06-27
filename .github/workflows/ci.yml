@@ -64,7 +64,7 @@ jobs:
 
       # コードの危険パターン検出（SAST）。
       - name: Scan code (bandit)
-        run: uv run bandit -c pyproject.toml -r src app.py
+        run: uv run bandit -c pyproject.toml -r src
 
   integration:
     # 重い統合テストは PR 作成時のみ実行する。
