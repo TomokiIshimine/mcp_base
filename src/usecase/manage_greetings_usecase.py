@@ -10,7 +10,9 @@ from usecase.greeting_crud_port import GreetingCrudPort
 
 logger = logging.getLogger(__name__)
 
-# greetings.message は VARCHAR(255)。DB 制約に到達する前にアプリ側で弾く。
+# メッセージ最大長の真実源（single source of truth）。DB 制約に到達する前に
+# アプリ側で弾く。値を変更する際は db/init/01_schema.sql の VARCHAR(255) も
+# 同期させること（両者は物理的に共有できないため、コメントで相互参照する）。
 MAX_MESSAGE_LENGTH = 255
 
 

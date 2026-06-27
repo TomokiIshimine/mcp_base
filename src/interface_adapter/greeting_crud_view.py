@@ -6,7 +6,7 @@
 
 import streamlit as st
 
-from interface_adapter.errors import OperationError
+from interface_adapter.errors import InvalidOperationError, SystemFailureError
 from interface_adapter.greeting_crud_controller import GreetingCrudController
 
 
@@ -17,7 +17,10 @@ def render_crud(controller: GreetingCrudController) -> None:
 
     try:
         rows = controller.list()
-    except OperationError as error:
+    except InvalidOperationError as error:
+        st.warning(str(error))
+        return
+    except SystemFailureError as error:
         st.error(str(error))
         return
 
@@ -58,10 +61,16 @@ def render_crud(controller: GreetingCrudController) -> None:
 
 
 def _guard(action, *args) -> bool:
-    """controller 操作を実行し、失敗時は画面にエラー表示して False を返す。"""
+    """controller 操作を実行し、失敗時は原因別に表示して False を返す。
+
+    利用者起因は警告（再操作で直る見込み）、システム障害はエラーとして出し分ける。
+    """
     try:
         action(*args)
-    except OperationError as error:
+    except InvalidOperationError as error:
+        st.warning(str(error))
+        return False
+    except SystemFailureError as error:
         st.error(str(error))
         return False
     return True
