@@ -6,6 +6,7 @@
 
 import streamlit as st
 
+from interface_adapter.errors import OperationError
 from interface_adapter.greeting_crud_controller import GreetingCrudController
 
 
@@ -14,7 +15,11 @@ def render_crud(controller: GreetingCrudController) -> None:
     st.title("Greetings CRUD")
     st.caption("MySQL の greetings テーブルを操作します。")
 
-    rows = controller.list()
+    try:
+        rows = controller.list()
+    except OperationError as error:
+        st.error(str(error))
+        return
 
     st.subheader("一覧")
     if rows:
@@ -47,17 +52,16 @@ def render_crud(controller: GreetingCrudController) -> None:
 
         st.subheader("削除")
         delete_id = st.selectbox("削除する id", ids, key="delete_id")
-        if st.button("削除"):
-            controller.delete(delete_id)
+        if st.button("削除") and _guard(controller.delete, delete_id):
             st.success("削除しました。")
             st.rerun()
 
 
 def _guard(action, *args) -> bool:
-    """controller 操作を実行し、バリデーション失敗時は画面にエラー表示して False を返す。"""
+    """controller 操作を実行し、失敗時は画面にエラー表示して False を返す。"""
     try:
         action(*args)
-    except ValueError as error:
+    except OperationError as error:
         st.error(str(error))
         return False
     return True
