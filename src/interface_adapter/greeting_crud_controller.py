@@ -5,12 +5,15 @@ usecase 層の業務例外は OperationError へ翻訳し、view へドライバ
 依存方向は interface_adapter -> usecase（外側 -> 内側）のみ。
 """
 
+import logging
 from collections.abc import Callable
 from typing import TypeVar
 
 from interface_adapter.errors import OperationError
 from usecase.errors import GreetingError
 from usecase.manage_greetings_usecase import ManageGreetingsUseCase
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -49,4 +52,5 @@ class GreetingCrudController:
         try:
             return action()
         except _PRESENTABLE_ERRORS as error:
+            logger.warning("操作失敗: %s", error)
             raise OperationError(str(error)) from error

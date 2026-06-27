@@ -6,6 +6,7 @@ MySQL の greetings テーブルに対する CRUD 画面を描画する。
 """
 
 from infrastructure.config import MySQLConfig
+from infrastructure.logging_config import configure_logging
 from infrastructure.mysql_greeting_crud_repository import MySQLGreetingCrudRepository
 from interface_adapter.greeting_crud_controller import GreetingCrudController
 from interface_adapter.greeting_crud_view import render_crud
@@ -14,6 +15,7 @@ from usecase.manage_greetings_usecase import ManageGreetingsUseCase
 
 def main() -> None:
     """greetings テーブルの CRUD 画面を描画する。"""
+    configure_logging()
     repository = MySQLGreetingCrudRepository(MySQLConfig.from_env())
     usecase = ManageGreetingsUseCase(repository)
     controller = GreetingCrudController(usecase)
