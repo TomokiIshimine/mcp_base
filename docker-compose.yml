@@ -21,7 +21,10 @@ services:
       retries: 20
 
   app:
-    build: .
+    build:
+      context: .
+      # dev 依存を含まない非 root の本番ステージを使う。
+      target: production
     environment:
       MYSQL_HOST: db
       MYSQL_PORT: "3306"
@@ -35,6 +38,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  # fmt/lint/test を実行するツール専用イメージ（ruff/pytest を含む dev ステージ）。
+  # profiles を付けて通常の `docker compose up` からは除外し、make fmt/lint/test の
+  # `docker compose run` からのみ起動する。ソースは実行時に bind mount する。
+  tooling:
+    build:
+      context: .
+      target: dev
+    profiles: ["tooling"]
 
 volumes:
   db_data:

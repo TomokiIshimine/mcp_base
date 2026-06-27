@@ -3,11 +3,13 @@
 .PHONY: help build up run down logs ps db-check fmt lint test clean
 
 # fmt/lint/test 用の使い捨てコンテナ実行コマンド。
+# 本番 app イメージには dev 依存（ruff/pytest）を含めないため、ツールは dev 依存込みの
+# tooling サービス（Dockerfile の dev ステージ）上で実行する。
 #  --rm      終了後にコンテナを破棄する
-#  --no-deps db を起動せずに app イメージだけ使う（単体テストに DB は不要）
+#  --no-deps db を起動せずに tooling イメージだけ使う（単体テストに DB は不要）
 #  -v ...    ホストの最新ソースを /app にマウントし、ビルド時の COPY ではなく
 #            手元の現在のコードを検査・整形する（fmt の書き戻しもホストへ反映される）
-DC_RUN := docker compose run --rm --no-deps -v "$(CURDIR):/app" app
+DC_RUN := docker compose run --rm --no-deps -v "$(CURDIR):/app" tooling
 
 help: ## このヘルプを表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
