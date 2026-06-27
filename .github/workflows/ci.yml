@@ -36,6 +36,9 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
+      - name: Type check
+        run: uv run mypy
+
       # pyproject の addopts によりカバレッジも併せて計測・表示される。
       - name: Test
         run: uv run pytest

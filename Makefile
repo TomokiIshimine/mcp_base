@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help build up run down logs ps db-check fmt lint test clean
+.PHONY: help build up run down logs ps db-check fmt lint typecheck test clean
 
 # fmt/lint/test 用の使い捨てコンテナ実行コマンド。
 # 本番 app イメージには dev 依存（ruff/pytest）を含めないため、ツールは dev 依存込みの
@@ -42,9 +42,12 @@ fmt: ## Docker 上の ruff でコードを整形する
 lint: ## Docker 上の ruff で静的検査する
 	$(DC_RUN) ruff check .
 
+typecheck: ## Docker 上の mypy で静的型検査する
+	$(DC_RUN) mypy
+
 test: ## Docker 上の pytest で単体テストを実行する
 	$(DC_RUN) pytest
 
 clean: ## Docker コンテナ・ボリュームとローカルキャッシュを削除する
 	docker compose down -v --remove-orphans
-	rm -rf .venv .pytest_cache .ruff_cache **/__pycache__
+	rm -rf .venv .pytest_cache .ruff_cache .mypy_cache **/__pycache__

@@ -8,6 +8,7 @@ __pycache__/
 # Test / lint tool caches
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 
 # Coverage artifacts
 .coverage
