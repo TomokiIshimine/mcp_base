@@ -102,7 +102,9 @@ class MySQLGreetingCrudRepository(GreetingCrudPort):
                     ) from error
                 time.sleep(_POOL_ACQUIRE_POLL_SECONDS)
             except pymysql.Error as error:
-                logger.exception("DB 接続に失敗")
+                # RepositoryError へ翻訳して送出するため、失敗の ERROR 記録は上位層に
+                # 委ねる（二重記録を避ける）。技術詳細は調査用に DEBUG で残す。
+                logger.debug("DB 接続に失敗", exc_info=True)
                 raise RepositoryError("DB に接続できませんでした") from error
 
     @contextmanager
@@ -129,7 +131,9 @@ class MySQLGreetingCrudRepository(GreetingCrudPort):
                 "入力値が制約に反するため保存できませんでした"
             ) from error
         except pymysql.Error as error:
-            logger.exception("DB 操作に失敗")
+            # RepositoryError へ翻訳して送出するため、失敗の ERROR 記録は上位層に
+            # 委ねる（二重記録を避ける）。技術詳細は調査用に DEBUG で残す。
+            logger.debug("DB 操作に失敗", exc_info=True)
             raise RepositoryError("DB 操作に失敗しました") from error
         finally:
             # PooledDB の接続は close() でプールへ返却される（物理切断ではない）。
