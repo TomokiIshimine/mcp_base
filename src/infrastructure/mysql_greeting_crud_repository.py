@@ -32,6 +32,24 @@ _POOL_ACQUIRE_TIMEOUT_SECONDS = 5.0
 _POOL_ACQUIRE_POLL_SECONDS = 0.05
 
 
+class _GreetingSQL:
+    """greetings テーブルへの SQL を集約した名前付き定数。
+
+    SQL を各メソッドへ直書きせず、テーブル単位で一箇所に集約する。クエリの所在と
+    全体像を見通しやすくし、文言変更の影響範囲をここに閉じ込める。値はすべて
+    プレースホルダ（%s）でパラメータ化し、SQL インジェクションを防ぐ。
+
+    テーブルが増えるときは、そのテーブルのリポジトリ・モジュールに同様の SQL 集約
+    クラスを設けるのが本テンプレートの方針。巨大な共通 SQL モジュールに一極集中
+    させず、テーブルごとに SQL とリポジトリを近接させて凝集度を保つ。
+    """
+
+    SELECT_ALL = "SELECT id, message FROM greetings ORDER BY id"
+    INSERT = "INSERT INTO greetings (message) VALUES (%s)"
+    UPDATE = "UPDATE greetings SET message = %s WHERE id = %s"
+    DELETE = "DELETE FROM greetings WHERE id = %s"
+
+
 class MySQLGreetingCrudRepository(GreetingCrudPort):
     """MySQL の greetings テーブルに対する CRUD リポジトリ。
 
@@ -120,13 +138,13 @@ class MySQLGreetingCrudRepository(GreetingCrudPort):
     def list_all(self) -> list[GreetingRecord]:
         # DictCursor でカラム名アクセスし、SELECT の列順への暗黙依存を避ける。
         with self._cursor(pymysql.cursors.DictCursor) as cursor:
-            cursor.execute("SELECT id, message FROM greetings ORDER BY id")
+            cursor.execute(_GreetingSQL.SELECT_ALL)
             rows = cursor.fetchall()
         return [GreetingRecord(row["id"], row["message"]) for row in rows]
 
     def create(self, message: str) -> GreetingRecord:
         with self._cursor() as cursor:
-            cursor.execute("INSERT INTO greetings (message) VALUES (%s)", (message,))
+            cursor.execute(_GreetingSQL.INSERT, (message,))
             new_id = cursor.lastrowid
         if new_id is None:
             raise RepositoryError("作成した行の id を取得できませんでした")
@@ -134,15 +152,12 @@ class MySQLGreetingCrudRepository(GreetingCrudPort):
 
     def update(self, greeting_id: int, message: str) -> None:
         with self._cursor() as cursor:
-            cursor.execute(
-                "UPDATE greetings SET message = %s WHERE id = %s",
-                (message, greeting_id),
-            )
+            cursor.execute(_GreetingSQL.UPDATE, (message, greeting_id))
             self._ensure_affected(cursor, greeting_id)
 
     def delete(self, greeting_id: int) -> None:
         with self._cursor() as cursor:
-            cursor.execute("DELETE FROM greetings WHERE id = %s", (greeting_id,))
+            cursor.execute(_GreetingSQL.DELETE, (greeting_id,))
             self._ensure_affected(cursor, greeting_id)
 
     @staticmethod
