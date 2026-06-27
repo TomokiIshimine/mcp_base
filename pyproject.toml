@@ -43,7 +43,9 @@ target-version = "py312"
 # 論理系の pycodestyle サブセット（E4/E7/E9）＋pyflakes（F）＋import 整列（I）を土台に、
 # バグ検出（B: flake8-bugbear）・構文の近代化（UP: pyupgrade）・簡素化（SIM:
 # flake8-simplify）・ruff 固有（RUF）を加えて品質を底上げする。
-select = ["E4", "E7", "E9", "F", "I", "B", "UP", "SIM", "RUF"]
+# 命名のケース規約（snake_case / PascalCase / UPPER_CASE）は N（pep8-naming）で
+# ツール強制し、.claude/rules 側は意味論的命名（用語の一貫性・意図の明確さ）のみを担う。
+select = ["E4", "E7", "E9", "F", "I", "N", "B", "UP", "SIM", "RUF"]
 # RUF001/002/003 は全角の日本語句読点（（）：等）を曖昧文字として警告するが、
 # 本プロジェクトは日本語コメント/docstring を意図的に多用する方針のため無効化する。
 ignore = ["RUF001", "RUF002", "RUF003"]
