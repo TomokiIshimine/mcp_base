@@ -3,18 +3,23 @@ name = "mcp-base"
 version = "0.1.0"
 description = "Hello World Streamlit app structured with Clean Architecture 4 layers."
 requires-python = ">=3.12"
+# 脆弱性対応のため、直接依存はすべて厳密な == で固定する（再現性と監査性を優先）。
+# 推移的依存は uv.lock で固定。更新は意図的に == を引き上げて行う。
 dependencies = [
-    "streamlit>=1.0",
-    "PyMySQL>=1.0",
-    "dbutils>=3.0",
+    "streamlit==1.58.0",
+    "PyMySQL==1.2.0",
+    "dbutils==3.1.2",
 ]
 
 [dependency-groups]
 dev = [
-    "pytest>=8.0",
-    "pytest-cov>=5.0",
-    "ruff>=0.6",
-    "mypy>=1.11",
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "ruff==0.15.20",
+    "mypy==2.1.0",
+    # セキュリティチェック: 依存の既知脆弱性（pip-audit）とコードの危険パターン（bandit）。
+    "pip-audit==2.9.0",
+    "bandit==1.8.6",
 ]
 
 [build-system]
@@ -62,11 +67,18 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
-# テスト実行時に常にカバレッジを計測する。未到達行を term-missing で明示し、
-# リファクタ中のテスト漏れを定量把握する。pythonpath（src レイアウト）に合わせ
-# 計測対象もソースの 4 層が並ぶ src/ とする。
-addopts = "--cov=src --cov-report=term-missing"
+# 既定では軽量テスト（DB 不要）のみ実行する。実 MySQL を要する重いテストは
+# integration マーカーで分離し、明示時のみ（make test-integration / PR の CI）走らせる。
+# 計測対象はソースの 4 層が並ぶ src/。未到達行を term-missing で明示する。
+addopts = "--cov=src --cov-report=term-missing -m 'not integration'"
+markers = [
+    "integration: 実 MySQL を必要とする統合テスト（既定の軽量実行からは除外）",
+]
 
 [tool.coverage.run]
 # 計測はソース本体のみ。テスト自身は対象外にしてノイズを除く。
 omit = ["tests/*"]
+
+[tool.bandit]
+# テストはフェイク/アサーション主体でセキュリティ評価の対象外。
+exclude_dirs = ["tests"]
