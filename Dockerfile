@@ -53,5 +53,5 @@ USER appuser
 EXPOSE 8501
 
 # venv の bin に PATH が通っているので streamlit を直接起動する
-CMD ["streamlit", "run", "app.py", \
+CMD ["streamlit", "run", "src/app.py", \
      "--server.headless=true", "--server.address=0.0.0.0", "--server.port=8501"]

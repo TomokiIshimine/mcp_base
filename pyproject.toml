@@ -52,10 +52,10 @@ ignore = ["RUF001", "RUF002", "RUF003"]
 python_version = "3.12"
 # src レイアウト（PYTHONPATH=src 相当）に合わせ、infrastructure 等を解決させる。
 mypy_path = "src"
-# 検査対象は本体コード（src）と合成ルート（app.py）に絞る。テストはフェイク/スタブを
+# 検査対象は本体コード（src、合成ルート app.py を含む）に絞る。テストはフェイク/スタブを
 # 名目型に一致させない設計（duck typing）で、strict の nominal 検査と相性が悪いため
 # 対象外とする。型の品質保証は本体コードで担保する。
-files = ["src", "app.py"]
+files = ["src"]
 # 自前コードは型を厳密に検査する（型ヒントは丁寧に付いている前提）。
 strict = true
 
