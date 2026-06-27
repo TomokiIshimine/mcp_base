@@ -31,9 +31,10 @@ paths:
 
 ## 例外
 
-- usecase 層の業務例外（`GreetingError` 系）を捕捉し、ユーザー向け提示用の例外
-  （基底 `OperationError`／利用者起因 `InvalidOperationError`・システム障害
-  `SystemFailureError`）へ翻訳して提示する。スタックトレースや内部詳細を画面に
+- usecase 層が送出する利用者起因の失敗（業務例外 `GreetingError` 系、および入力
+  バリデーション失敗の `ValueError`）を捕捉して利用者起因 `InvalidOperationError`
+  へ、それ以外のシステム障害をシステム障害 `SystemFailureError`（基底
+  `OperationError`）へ翻訳して提示する。スタックトレースや内部詳細を画面に
   露出しない。
 
 ## ロギング
