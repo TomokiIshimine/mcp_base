@@ -9,17 +9,17 @@ import logging
 from collections.abc import Callable
 from typing import TypeVar
 
-from interface_adapter.errors import OperationError
-from usecase.errors import GreetingError
+from interface_adapter.errors import InvalidOperationError, SystemFailureError
+from usecase.errors import GreetingNotFoundError, RepositoryError
 from usecase.manage_greetings_usecase import ManageGreetingsUseCase
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-# usecase 層から伝わる、利用者へ提示可能な失敗。バリデーション失敗（ValueError）と
-# 業務例外（GreetingError: 該当なし・永続化失敗等）をまとめて OperationError に翻訳する。
-_PRESENTABLE_ERRORS = (ValueError, GreetingError)
+# 利用者起因の失敗。バリデーション失敗（ValueError）と対象不在（NotFound）を、
+# 再操作で直り得る InvalidOperationError へ翻訳する。
+_USER_ERRORS = (ValueError, GreetingNotFoundError)
 
 
 class GreetingCrudController:
@@ -48,9 +48,17 @@ class GreetingCrudController:
 
     @staticmethod
     def _run(action: Callable[[], T]) -> T:
-        """usecase 操作を実行し、提示可能な例外を OperationError へ翻訳する。"""
+        """usecase 操作を実行し、提示可能な例外を原因別の OperationError へ翻訳する。
+
+        利用者起因（入力不正・対象不在）は InvalidOperationError、永続化失敗は
+        SystemFailureError へ振り分ける。infrastructure が付けた利用者向け文言を
+        そのまま使うため、メッセージは差し替えない。
+        """
         try:
             return action()
-        except _PRESENTABLE_ERRORS as error:
-            logger.warning("操作失敗: %s", error)
-            raise OperationError(str(error)) from error
+        except _USER_ERRORS as error:
+            logger.warning("操作失敗（利用者起因）: %s", error)
+            raise InvalidOperationError(str(error)) from error
+        except RepositoryError as error:
+            logger.error("操作失敗（システム障害）: %s", error)
+            raise SystemFailureError(str(error)) from error

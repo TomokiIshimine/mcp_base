@@ -2,7 +2,11 @@
 
 import pytest
 
-from interface_adapter.errors import OperationError
+from interface_adapter.errors import (
+    InvalidOperationError,
+    OperationError,
+    SystemFailureError,
+)
 from interface_adapter.greeting_crud_controller import GreetingCrudController
 from usecase.errors import GreetingNotFoundError, RepositoryError
 
@@ -47,6 +51,27 @@ def test_list_translates_repository_error():
     controller = GreetingCrudController(_RaisingUseCase(RepositoryError("失敗")))
 
     with pytest.raises(OperationError):
+        controller.list()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ValueError("メッセージは空にできません"),
+        GreetingNotFoundError("id=1 の挨拶が見つかりません"),
+    ],
+)
+def test_user_errors_translate_to_invalid_operation_error(error):
+    controller = GreetingCrudController(_RaisingUseCase(error))
+
+    with pytest.raises(InvalidOperationError):
+        controller.create("Hello")
+
+
+def test_repository_error_translates_to_system_failure_error():
+    controller = GreetingCrudController(_RaisingUseCase(RepositoryError("失敗")))
+
+    with pytest.raises(SystemFailureError):
         controller.list()
 
 

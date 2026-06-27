@@ -10,6 +10,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 import pymysql
+from dbutils.pooled_db import PooledDB
 
 from domain.greeting_record import GreetingRecord
 from infrastructure.config import MySQLConfig
@@ -18,35 +19,44 @@ from usecase.greeting_crud_port import GreetingCrudPort
 
 logger = logging.getLogger(__name__)
 
+# プールが保持する物理接続の上限。Streamlit の同時セッション数に対する目安。
+_MAX_CONNECTIONS = 5
+
 
 class MySQLGreetingCrudRepository(GreetingCrudPort):
-    """MySQL の greetings テーブルに対する CRUD リポジトリ。"""
+    """MySQL の greetings テーブルに対する CRUD リポジトリ。
+
+    接続はコネクションプール（PooledDB）から借り、操作後にプールへ返却する。
+    操作ごとに物理接続を張り直さないため、Streamlit の再実行コストを抑えられる。
+    プールはスレッドセーフで、複数セッションからの同時利用に耐える。
+    """
 
     def __init__(self, config: MySQLConfig) -> None:
-        self._config = config
+        # mincached=0（既定）のため、プール生成時点では物理接続を確立しない。
+        # 実接続は connection() 払い出し時に遅延確立され、ping=1 で死活確認する。
+        self._pool = PooledDB(
+            creator=pymysql,
+            maxconnections=_MAX_CONNECTIONS,
+            blocking=True,
+            ping=1,
+            host=config.host,
+            port=config.port,
+            user=config.user,
+            password=config.password,
+            database=config.database,
+            autocommit=True,
+        )
 
     @contextmanager
     def _cursor(self) -> Iterator[pymysql.cursors.Cursor]:
-        """接続を確立してカーソルを払い出し、終了時に確実に閉じる（autocommit 有効）。
+        """プールから接続を借りてカーソルを払い出し、終了時にプールへ返却する。
 
         接続・SQL 実行で生じた pymysql.Error は RepositoryError へ翻訳する。
         """
         try:
-            connection = pymysql.connect(
-                host=self._config.host,
-                port=self._config.port,
-                user=self._config.user,
-                password=self._config.password,
-                database=self._config.database,
-                autocommit=True,
-            )
+            connection = self._pool.connection()
         except pymysql.Error as error:
-            logger.exception(
-                "DB 接続に失敗 host=%s port=%s database=%s",
-                self._config.host,
-                self._config.port,
-                self._config.database,
-            )
+            logger.exception("DB 接続に失敗")
             raise RepositoryError("DB に接続できませんでした") from error
         try:
             with connection.cursor() as cursor:
@@ -55,6 +65,7 @@ class MySQLGreetingCrudRepository(GreetingCrudPort):
             logger.exception("DB 操作に失敗")
             raise RepositoryError("DB 操作に失敗しました") from error
         finally:
+            # PooledDB の接続は close() でプールへ返却される（物理切断ではない）。
             connection.close()
 
     def list_all(self) -> list[GreetingRecord]:
