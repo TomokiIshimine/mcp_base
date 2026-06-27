@@ -51,7 +51,7 @@ def test_list_translates_repository_error():
     controller = GreetingCrudController(_RaisingUseCase(RepositoryError("失敗")))
 
     with pytest.raises(OperationError):
-        controller.list()
+        controller.list_all()
 
 
 @pytest.mark.parametrize(
@@ -72,7 +72,7 @@ def test_repository_error_translates_to_system_failure_error():
     controller = GreetingCrudController(_RaisingUseCase(RepositoryError("失敗")))
 
     with pytest.raises(SystemFailureError):
-        controller.list()
+        controller.list_all()
 
 
 def test_unexpected_error_is_not_swallowed():

@@ -10,16 +10,20 @@ from collections.abc import Callable
 from typing import TypeVar
 
 from interface_adapter.errors import InvalidOperationError, SystemFailureError
-from usecase.errors import GreetingNotFoundError, RepositoryError
+from usecase.errors import (
+    GreetingNotFoundError,
+    InvalidGreetingError,
+    RepositoryError,
+)
 from usecase.manage_greetings_usecase import ManageGreetingsUseCase
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-# 利用者起因の失敗。バリデーション失敗（ValueError）と対象不在（NotFound）を、
-# 再操作で直り得る InvalidOperationError へ翻訳する。
-_USER_ERRORS = (ValueError, GreetingNotFoundError)
+# 利用者起因の失敗。バリデーション失敗（ValueError）・対象不在（NotFound）・DB 制約
+# 違反（InvalidGreetingError）を、再操作で直り得る InvalidOperationError へ翻訳する。
+_USER_ERRORS = (ValueError, GreetingNotFoundError, InvalidGreetingError)
 
 
 class GreetingCrudController:
@@ -28,7 +32,7 @@ class GreetingCrudController:
     def __init__(self, usecase: ManageGreetingsUseCase) -> None:
         self._usecase = usecase
 
-    def list(self) -> list[tuple[int, str]]:
+    def list_all(self) -> list[tuple[int, str]]:
         """全挨拶を (id, message) のタプル列で返す。"""
         return self._run(
             lambda: [(r.id, r.message) for r in self._usecase.list_greetings()]

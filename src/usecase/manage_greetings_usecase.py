@@ -45,13 +45,15 @@ class ManageGreetingsUseCase:
 
     @staticmethod
     def _require_message(message: str) -> str:
-        """前後空白を除去し、空文字・長さ超過なら ValueError を送出する。"""
+        """前後空白を除去し、空文字・長さ超過なら ValueError を送出する。
+
+        バリデーション失敗のログは出さない（呼び出し元へ送出し、最終的に
+        interface_adapter 層が利用者起因の警告として一元的に記録する）。
+        """
         normalized = message.strip()
         if not normalized:
-            logger.debug("バリデーション拒否: 空メッセージ")
             raise ValueError("メッセージは空にできません")
         if len(normalized) > MAX_MESSAGE_LENGTH:
-            logger.debug("バリデーション拒否: 長さ超過 len=%d", len(normalized))
             raise ValueError(
                 f"メッセージは {MAX_MESSAGE_LENGTH} 文字以内にしてください"
             )
