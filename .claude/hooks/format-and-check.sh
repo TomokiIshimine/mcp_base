@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # PostToolUse フック: 編集された 1 ファイルだけに対して
-#   1) ruff format     （整形・書き戻し）
-#   2) ruff check --fix （自動修正可能な lint を修正・書き戻し）
+#   1) ruff check --fix （自動修正可能な lint を修正・書き戻し）
+#   2) ruff format     （整形・書き戻し。lint 修正後の最終コードを整える）
 #   3) ruff check      （残った lint を報告）
 #   4) mypy            （型検査・src 配下のみ）
 # を実行する。問題が残った場合は exit 2 で stderr を Claude に返し、修正を促す。
+# lint 修正(pyupgrade 等)はコードを書き換えるため、整形は必ず修正の後に行う。
+# こうしないと CI の `ruff format --check` と整形差分で食い違う。
 #
 # 全体ではなく対象ファイル限定で走らせることで高速・低負荷に保つ。
 # ツールは Docker ではなくローカル .venv のバイナリを直接叩く（最速）。
@@ -13,10 +15,20 @@ set -uo pipefail
 ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 RUFF="$ROOT/.venv/bin/ruff"
 MYPY="$ROOT/.venv/bin/mypy"
+PY="$ROOT/.venv/bin/python"
+
+input="$(cat)"
+
+# .venv が無ければ何もせず終了（環境未構築でフックが邪魔をしないフェイルセーフ）。
+# JSON 解析にも整形/検査にも .venv のツールしか使わないため、ここで一括判定する。
+# 解析を make setup が必ず入れる Python に寄せ、未宣言依存（jq）への依存を排除する。
+[ -x "$PY" ] || exit 0
+[ -x "$RUFF" ] || exit 0
 
 # stdin の JSON から編集対象ファイルパスを取り出す（Edit/Write/MultiEdit 共通）。
-input="$(cat)"
-file="$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty')"
+file="$(printf '%s' "$input" | "$PY" -c \
+  'import json,sys; print(json.load(sys.stdin).get("tool_input",{}).get("file_path",""))' \
+  2>/dev/null)"
 
 # 対象外なら何もせず終了（フックは全イベントに発火しうるため早期 return）。
 [ -z "$file" ] && exit 0
@@ -26,16 +38,13 @@ case "$file" in
 esac
 [ -f "$file" ] || exit 0    # 削除直後などファイルが無ければスキップ
 
-# ツールが無い場合は黙って継続（環境未構築でフックが邪魔をしないように）。
-[ -x "$RUFF" ] || exit 0
-
 errors=""
 
-# 1) 整形（書き戻し）。失敗しても致命ではないので継続。
-"$RUFF" format "$file" >/dev/null 2>&1
-
-# 2) 自動修正可能な lint を修正（書き戻し）。
+# 1) 自動修正可能な lint を修正（書き戻し）。コードを書き換えることがある。
 "$RUFF" check --fix "$file" >/dev/null 2>&1
+
+# 2) 整形（書き戻し）。修正後の最終コードを整える。必ず check --fix の後に行う。
+"$RUFF" format "$file" >/dev/null 2>&1
 
 # 3) 残った lint を収集。
 if ! lint_out="$("$RUFF" check "$file" 2>&1)"; then
