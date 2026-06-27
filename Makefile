@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help build up run down logs ps db-check fmt lint typecheck test \
+.PHONY: help setup build up run down logs ps db-check fmt lint typecheck test \
         test-integration audit security clean _require-env
 
 # fmt/lint/test 用の使い捨てコンテナ実行コマンド。
@@ -24,6 +24,13 @@ _require-env:
 help: ## このヘルプを表示
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
+
+# 通常のアプリ実行・検査は Docker（make run/fmt/...）で完結するが、エディタ補完や
+# 編集時フック（.claude/hooks）はホスト上のツールを直接叩くため、ローカルにも
+# dev 依存込みの仮想環境 .venv が要る。本ターゲットでそれを一度だけ用意する。
+# --frozen で uv.lock に厳密一致させ、CI/Docker と同じ依存を再現する。
+setup: ## ローカル開発用に .venv を作成する（uv sync。フック/エディタ補完の前提）
+	uv sync --frozen
 
 build: _require-env ## Docker イメージをビルドする
 	docker compose build
