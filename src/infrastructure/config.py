@@ -1,7 +1,8 @@
-"""MySQL 接続設定（infrastructure 層）。
+"""アプリ設定（infrastructure 層）。
 
-接続情報は環境変数から読み取り、infrastructure 層に閉じる。上位層（usecase/domain）
-へ接続詳細を漏らさず、リポジトリ実装にのみ渡す。
+MySQL 接続設定と認証設定を環境変数から読み取り、infrastructure 層に閉じる。上位層
+（usecase/domain）へ接続詳細・機微情報を漏らさず、必須値の欠如は起動時に検出して
+落とす（fail-fast）。
 """
 
 import os
@@ -53,3 +54,27 @@ class MySQLConfig:
             password=_require_env("MYSQL_PASSWORD"),
             database=_require_env("MYSQL_DATABASE"),
         )
+
+
+@dataclass(frozen=True)
+class AuthConfig:
+    """認証ゲートの認可判定に用いる設定を保持する不変の値。
+
+    OAuth クライアント設定（client_id/client_secret/cookie_secret/redirect_uri/
+    server_metadata_url）はアプリのドメイン／業務ロジックでは参照せず、entrypoint が
+    `.streamlit/secrets.toml` の `[auth]` にレンダリングして Streamlit が直接読む方式
+    （方式 A）を採る。そのためアプリ側設定クラスが保持するのは管理者 Email のみとする。
+    """
+
+    # 管理者 Email は個人情報のため repr/ログ出力に展開させず、平文の漏洩を構造的に
+    # 防ぐ（MySQLConfig.password と同じ扱い）。例外メッセージにも値を載せない。
+    admin_email: str = field(repr=False)
+
+    @classmethod
+    def from_env(cls) -> "AuthConfig":
+        """環境変数から認証設定を構築する。
+
+        管理者 Email は本要件の認可判定の唯一の基準であり、弱い既定値で誰でも認可
+        される事態を避けるため必須とする（未設定・空文字なら ConfigError で起動失敗）。
+        """
+        return cls(admin_email=_require_env("AUTH_ADMIN_EMAIL"))
