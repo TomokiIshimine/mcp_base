@@ -52,6 +52,12 @@ USER appuser
 
 EXPOSE 8501
 
-# venv の bin に PATH が通っているので streamlit を直接起動する
+# 起動時に env から .streamlit/secrets.toml の [auth] を生成してから CMD へ exec する
+# （方式 A / D-6）。シークレットをイメージ層へ焼き込まず、コンテナ起動時に env から
+# 流し込む。WORKDIR=/app のため secrets.toml は /app/.streamlit/ 配下（appuser 所有で
+# 書込可）に生成される。必須 OAUTH_* 欠如時はスクリプトが fail-fast で起動を止める。
+ENTRYPOINT ["sh", "docker/render-secrets.sh"]
+
+# venv の bin に PATH が通っているので streamlit を直接起動する（entrypoint の "$@"）。
 CMD ["streamlit", "run", "src/app.py", \
      "--server.headless=true", "--server.address=0.0.0.0", "--server.port=8501"]
