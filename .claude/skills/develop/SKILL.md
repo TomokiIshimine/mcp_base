@@ -21,15 +21,15 @@ disable-model-invocation: true
 
 ### プロジェクト固有情報（埋め込み済み・実行時に再調査しない）
 
-本フローは以下のプロジェクト固有情報を所与として扱う。develop 実行時のメイン・サブエージェントはこれらを再調査・再ヒアリングしない。`<requirement>` に直接関連する変動情報のみを実行時に調査・ヒアリングする。
+本フローは以下のプロジェクト固有情報を所与として扱う。develop 実行時のメイン・サブエージェントは下表の正本パスを所与として読み、これらを再調査・再ヒアリングしない（権威ある事実の正本は各パス側にあり、本表では再掲せず参照のみを置く）。`<requirement>` に直接関連する変動情報のみを実行時に調査・ヒアリングする。
 
-| 項目 | 確定値 |
+| 項目 | 正本（所与として読む。追加調査しない） |
 |---|---|
-| アーキテクチャ概要 | Clean Architecture 4 層（`domain` / `usecase` / `interface_adapter` / `infrastructure`）。依存方向 `interface_adapter → usecase → domain`、`infrastructure → usecase(ポート)・domain`。具象結線は合成ルート `src/app.py` に集約（依存性逆転）。 |
-| 既存規約 | `.claude/rules/`（常時ロード `00-common.md` ＋層別 05〜60）。ruff（format/lint）・mypy strict・bandit。ユビキタス言語 `greeting` を全層統一。新規ファイル作成前に対応層別規約を読む。PostToolUse フック `format-and-check.sh` が `Edit|Write|MultiEdit` で発火。 |
-| 領域分割の前提 | 単一領域（backend/frontend/infra の物理分割なし）。Clean Architecture 4 層を持つ単一 Python パッケージ。分割軸は「層」のみで、層は単一 coder 内で扱える。 |
-| 動作確認手段 | 最優先: `make test`（pytest・カバレッジ計測あり）。UI/E2E は `make run` で Streamlit を起動し **Claude in Chrome（`claude-in-chrome` ブラウザ自動操作）で実ブラウザを操作**して、設計書 `04_design.md` のテスト設計セクションが今回の要件用に定めた受入シナリオに絞って検証（`docs/05_e2e-tests.md` 全件は回さない）。UI を伴う確認もブラウザ自動操作でワークフロー内で完結する（判定は PASS/FAIL の二値）。プロジェクト固有の MCP server は未実装。 |
-| ドキュメント所在 | `docs/`（索引 `docs/00_documentation-map.md`・01〜06）／`README.md`／`CLAUDE.md`／`.claude/rules/`。 |
+| アーキテクチャ概要 | Clean Architecture 4 層構成。正本は `docs/01_architecture.md`（4 層・依存方向・合成ルート `src/app.py` への結線集約を含む）。 |
+| 既存規約 | コーディング規約の正本は `.claude/rules/`（常時ロード `00-common.md` ＋層別 05〜60）。検査ツール・ユビキタス言語・新規ファイル作成手順もここに従う。PostToolUse フック `format-and-check.sh` が `Edit|Write|MultiEdit` で発火する点のみ本フロー固有の前提として保持する。 |
+| 領域分割の前提 | 単一領域（backend/frontend/infra の物理分割なし）。分割軸は Clean Architecture の「層」のみで、層は単一 coder 内で扱える。 |
+| 動作確認手段 | 正本は `develop-runner` の埋め込み手段（Step 5 工程 2 から参照）。本表・Step 5 では手段本体を再掲しない。 |
+| ドキュメント所在 | 正本は `docs/00_documentation-map.md`（docs/* 索引）／`README.md`／`CLAUDE.md`／`.claude/rules/`。 |
 
 ## 共通契約への準拠
 
@@ -46,6 +46,7 @@ disable-model-invocation: true
 |---|---|---|
 | Step 3 承認ゲートのユーザー概要提示 | `<workdir>/03_requirements.md` | `## 要件サマリ` |
 | Step 4 承認ゲートのユーザー概要提示 | `<workdir>/04_design.md` | `## 設計サマリ` / `## 領域定義` |
+| Step 5 実装ディスパッチ時の領域定義参照 | `<workdir>/04_design.md` | `## 領域定義` |
 
 - 要件定義・設計の論点（ヒアリング項目）は設計係が最終メッセージ（戻り値）で返すためファイル化しない。メインは戻り値をそのまま `/user-hearing` の作法で発火する。
 - コードレビュー結果・動作確認結果の PASS/FAIL 判定は各サブエージェントの戻り値（`<絶対パス> PASS|FAIL`）で受け取る。FAIL レポート本文は Read せず、再実装時は FAIL レポートの絶対パス群を `develop-coder` に引数として渡す（本文 Read はしない）。
@@ -105,14 +106,13 @@ disable-model-invocation: true
    - 戻り値: 実装差分（プロダクションコード＋テストコード）。
 2. **コードレビューと動作確認の並列実行**: メインが **単一メッセージ内に複数の `Agent` 呼び出しを並べて並列 spawn** する。
    - コードレビュー: 固定 6 観点それぞれに `develop-reviewer` を 1 体ずつ並列 spawn（合計 6 体）。
-     - 各引数: 実装差分 / `<workdir>/04_design.md` / `<workdir>/03_requirements.md` / `<aspect>` / `<iteration>`（現在の反復番号。reviewer が出力ファイルを決定論的に命名するために必須。`<output-path>` として具体化した `<workdir>/05_review-<iteration>_<aspect>.md` を直接渡してもよい。2 周目以降は併せて前周回レポート `<workdir>/05_review-<iteration-1>_<aspect>.md` の絶対パスを `previous-review-path` として渡す）。
+     - 各引数: 実装差分 / `<workdir>/04_design.md` / `<workdir>/03_requirements.md` / `<aspect>` / `<output-path>`（メインが `<workdir>/05_review-<iteration>_<aspect>.md` を具体化して渡すレビューレポート書き出し先絶対パス。`develop-reviewer` は `/multi-aspect-review` 契約に従いこの `output-path` に Write する。2 周目以降は併せて前周回レポート `<workdir>/05_review-<iteration-1>_<aspect>.md` の絶対パスを `previous-review-path` として渡す）。
      - 各戻り値: `<workdir>/05_review-<iteration>_<aspect>.md` ＋ 最終メッセージで `<絶対パス> PASS|FAIL`。
-     - 固定 6 観点（順序が API。並び替え・カスタマイズ不可）: `requirement-fidelity` / `architecture-fidelity` / `security` / `performance` / `readability` / `test-coverage`。
+     - 固定 6 観点（spawn する順序が API。並び替え・カスタマイズ不可）: `requirement-fidelity` / `architecture-fidelity` / `security` / `performance` / `readability` / `test-coverage`。各観点の点検基準・判定定義の正本は `develop-reviewer` にあり、本スキルは spawn 対象としてこの 6 観点を列挙するのみで定義を再掲しない。
    - 動作確認: `develop-runner` を 1 体（コードレビューと同一メッセージで並列）。
-     - 引数: 実装差分 / `<workdir>/04_design.md` / `<requirement>` / `<iteration>`（現在の反復番号。runner が出力ファイルを決定論的に命名するために必須。`<output-path>` として具体化した `<workdir>/05_runtime-verification-<iteration>.md` を直接渡してもよい）。
+     - 引数: 実装差分 / `<workdir>/04_design.md` / `<requirement>` / `<iteration>`（現在の反復番号。runner が出力ファイルを決定論的に命名するための正規の渡し方。出力先を明示固定したい場合の代替として `<output-path>` に具体化した `<workdir>/05_runtime-verification-<iteration>.md` を直接渡してよい）。
      - 戻り値: `<workdir>/05_runtime-verification-<iteration>.md` ＋ 最終メッセージで `<絶対パス> PASS|FAIL`。
-     - 動作確認手段（1. `make test`（pytest による軽量テスト。**DB 不要**。既定で実 MySQL を要する `integration` マーカー付きテストを除外する。coder が TDD で追加・更新したテストを含む既存テスト一式を実行する。runner はテストを追加・更新しない） 1'. **設計書（`04_design.md`）または実装差分が MySQL／永続化・インフラ層（`infrastructure` 層のリポジトリ・DB スキーマ・接続設定など）に触れる場合は `make test-integration`（実 MySQL を起動し `pytest -m integration` を実行する別ターゲット）も必須にする**（`make test` は `integration` マーカー付きテストを除外するため、これを省くと永続化のリグレッションが Step 5 を通過し PR 後の CI で初めて顕在化する。DB/インフラに触れない要件では `make test-integration` は不要） 2. UI/E2E は `make run` で Streamlit を起動し **Claude in Chrome（ブラウザ自動操作）で実操作**して、設計書 `04_design.md` のテスト設計セクションが今回の要件用に定めた受入シナリオに絞って検証する（`docs/05_e2e-tests.md` 全件は回さず、今回の `<requirement>` に対応するシナリオだけを動かす））。要件充足の確認に必要なテストが不足している場合は runner がテストを足さず FAIL の根拠として明記し、次周回で coder が補う。
-     - **UI を伴う確認もブラウザ自動操作でワークフロー内で完結する。** ブラウザ自動操作が技術的に実施できない場合（アプリ起動不可・対象画面到達不可等）は、その原因を根拠に runner が `FAIL` を返す（次周回で実装係が対処）。
+     - 動作確認手段の本体（実行するコマンド・`make test-integration` を含む条件分岐・ブラウザ自動操作の手順）は `develop-runner` の埋め込み手段を正本とし、本スキルでは再掲しない。runner は実装差分と設計書のテスト設計セクションに基づいて検証し、要件充足に必要なテストが不足していればテストを足さず FAIL の根拠として明記する（次周回で coder が補う）。ブラウザ自動操作が技術的に実施できない場合も runner がその原因を根拠に `FAIL` を返す。判定は PASS/FAIL の二値。
 3. **判定**:
    - 全コードレビュー観点 PASS かつ動作確認 PASS → ループ脱出（コミットへ）。
    - 1 つでも FAIL → 工程 1（実装）へ戻り、FAIL レポートの絶対パス群を入力として再実装・再レビュー・再動作確認。
@@ -128,7 +128,7 @@ disable-model-invocation: true
   - 手順・規約の変化（セットアップ／コントリビュート手順・命名規則・運用フローの変更）。
 - いずれにも該当しないと判断した場合: 判断根拠を 1 行でユーザーへ提示し本ステップをスキップして Step 7 へ進む。
 - 更新対象が 1 本以上特定できた場合: ドキュメント 1 本につき `develop-doc-updater` を 1 体 spawn する。
-  - 各引数: `<workdir>/04_design.md` / 実装結果 / レビュー結果 / 対象ドキュメントパス。
+  - 各引数: `<workdir>/04_design.md` / 実装差分 / レビュー結果 / 対象ドキュメントパス。
   - 各戻り値: 更新された対象ドキュメント。
 - 更新差分は「git 操作のタイミング」表に従いコミットする（粒度・メッセージは `AskUserQuestion`）。
 
@@ -136,7 +136,7 @@ disable-model-invocation: true
 
 - メインが Step 6 までのコミット（ドキュメント更新分を含む）を `git push -u origin <work-branch>` でリモートへ push する。
 - メインが `develop-pr-author` を起動する。
-  - 引数: 要件定義書・設計書・実装変更点・レビュー結果・動作確認結果の各絶対パス / `<base-branch>` / `<work-branch>`。
+  - 引数: 要件定義書・設計書・実装差分・レビュー結果・動作確認結果の各絶対パス / `<base-branch>` / `<work-branch>`。
   - 戻り値: 作成された PR の URL。
   - 責務: PR タイトル・本文を組み立て `gh pr create --base <base-branch> --head <work-branch>` で PR を作成。Step 5 改善ループが上限到達で「継続」を選んだ場合は残課題を PR 本文末尾に明記する。
 - メインは `develop-pr-author` 完了後、作成された PR の URL と簡潔な概要をテキストで提示してワークフローを終了する。
