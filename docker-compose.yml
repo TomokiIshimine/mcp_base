@@ -40,6 +40,20 @@ services:
       # db 側の :? で .env を強制済みのため、ここはリテラル既定を置かず参照のみ。
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-app_db}
+      # 認証ゲート（OAuth2 / Google）の設定。管理者 Email は infrastructure 設定クラスが
+      # 直接読み（fail-fast の対象、AC-1）、OAUTH_* は entrypoint（render-secrets.sh）が
+      # .streamlit/secrets.toml の [auth] へレンダリングして Streamlit が読む（方式 A / D-6）。
+      # ここでは :? による必須化を使わない。:? は compose ファイル全体の変数補間段階で
+      # 評価されるため、独立して動くべき tooling サービス（make test/lint/fmt が使用）まで
+      # 認証 env 未設定で巻き添え停止してしまう。アプリ起動時の fail-fast（AC-1）は
+      # AuthConfig.from_env() が空文字を検出して ConfigError を投げることで担保されるため、
+      # compose 側は :- で空既定にして app 以外のコマンドを妨げない（未設定なら app は起動時に落ちる）。
+      AUTH_ADMIN_EMAIL: ${AUTH_ADMIN_EMAIL:-}
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
+      OAUTH_COOKIE_SECRET: ${OAUTH_COOKIE_SECRET:-}
+      # redirect_uri は秘匿でなくローカル既定の利便性が勝るため未設定時はフォールバック。
+      OAUTH_REDIRECT_URI: ${OAUTH_REDIRECT_URI:-http://localhost:8501/oauth2callback}
       # 予期せぬ例外時にスタックトレースを画面表示しない（情報露出抑止）
       STREAMLIT_CLIENT_SHOW_ERROR_DETAILS: none
     ports:
