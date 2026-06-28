@@ -55,7 +55,7 @@ disable-model-invocation: true
 
 - 入力: `<requirement>`。
 - 手順:
-  1. `<task-slug>` を確定する。`<requirement>` の要約をケバブケース化（`^[a-z0-9-]+$`・3〜40 文字）。`<requirement>` が空文字のときのみ `AskUserQuestion`（自由記述スロット）で取得する。
+  1. `<requirement>` を確定する。**空文字の場合はまず `AskUserQuestion`（自由記述スロット）で開発したい機能・改修内容の本文をユーザーから取得し、それを `<requirement>` として保持する**（以降の Step 2〜7 はこの本文を参照するため、空のまま先へ進めない）。続いて確定した `<requirement>` の要約をケバブケース化して `<task-slug>` を導出する（`^[a-z0-9-]+$`・3〜40 文字）。slug は要件本文から導出し、slug 取得のためだけの単独ヒアリングは行わない。
   2. `<base-branch>`（現在ブランチ）を確認する。未コミット変更がある場合は `AskUserQuestion` で「中止／そのまま派生／一時停止（ユーザーのコミット完了後に再開）」を、未コミット変更ファイル数を質問文に含めて確認する。
   3. `workflow-init` を `workflow-name: <task-slug>` で起動し、`<workdir>`（絶対パス）を受領する。git 操作はメイン側で完結し `workflow-init` には渡さない。
   4. `<base-branch>` から `<task-slug>` ブランチを派生作成する。同名既存時は `AskUserQuestion` で「既存ブランチへ切替／別名で作成／中止」を確認する。
@@ -113,7 +113,7 @@ disable-model-invocation: true
      - 引数: 実装差分 / `<workdir>/04_design.md` / `<requirement>` / `<iteration>`（現在の反復番号。runner が出力ファイルを決定論的に命名するために必須。`<output-path>` として具体化した `<workdir>/05_runtime-verification-<iteration>.md` を直接渡してもよい）。
      - 戻り値: `<workdir>/05_runtime-verification-<iteration>.md` ＋ 最終メッセージで `<絶対パス> PASS|FAIL|MANUAL`。
      - 動作確認は自動化手段を優先（1. `make test`（pytest。coder が TDD で追加・更新したテストを含む既存テスト一式を実行する。runner はテストを追加・更新しない） 2. E2E 受入シナリオ `docs/05_e2e-tests.md`。MCP server は未実装のため利用不可）。要件充足の確認に必要なテストが不足している場合は runner がテストを足さず FAIL の根拠として明記し、次周回で coder が補う。自動化不可時のみ手動シナリオ手順書を Write し `MANUAL` を返す。
-     - `MANUAL` が返った場合: メインが限定 Read で `05_runtime-verification-<iteration>.md` の `## 手動確認シナリオ` を提示し、`AskUserQuestion` でユーザーの実行結果（PASS/FAIL ＋観察事項）を取得。`develop-runner` を再起動してレポート末尾に追記させ PASS/FAIL を確定する。
+     - `MANUAL` が返った場合: メインが限定 Read で `05_runtime-verification-<iteration>.md` の `## 手動確認シナリオ` を提示し、`AskUserQuestion` でユーザーの実行結果（PASS/FAIL ＋観察事項）を取得する。**runner は再起動しない**（runner の契約は diff/design/requirement/iteration のみを入力に取り常に手動シナリオを新規生成するため、再起動しても `MANUAL` を繰り返すかレポートを上書きするだけで PASS/FAIL に到達しない）。メインが取得した実行結果（PASS/FAIL ＋観察事項）を `05_runtime-verification-<iteration>.md` の末尾に追記し、そのユーザー回答を当該周回の動作確認の最終判定（PASS/FAIL）として確定する。
 3. **判定**:
    - 全コードレビュー観点 PASS かつ動作確認 PASS → ループ脱出（コミットへ）。
    - 1 つでも FAIL → 工程 1（実装）へ戻り、FAIL レポートの絶対パス群を入力として再実装・再レビュー・再動作確認。
