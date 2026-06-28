@@ -27,8 +27,9 @@ _DEFAULT_REDIRECT_URI = "http://localhost:8501/oauth2callback"
 
 
 def _valid_env() -> dict[str, str]:
-    """必須 OAUTH_* が揃った最小の正常 env。"""
+    """必須 env（AUTH_ADMIN_EMAIL ＋ OAUTH_*）が揃った最小の正常 env。"""
     return {
+        "AUTH_ADMIN_EMAIL": "admin@example.com",
         "OAUTH_COOKIE_SECRET": "cookie-secret-value",
         "OAUTH_GOOGLE_CLIENT_ID": "client-id-value",
         "OAUTH_GOOGLE_CLIENT_SECRET": "client-secret-value",
@@ -41,11 +42,11 @@ def _run_render(
 ) -> subprocess.CompletedProcess[str]:
     """render-secrets.sh を隔離 cwd・指定 env で subprocess 実行する。
 
-    親プロセスの OAUTH_* を除去し、テスト入力（env_overrides）だけを効かせる。
+    親プロセスの AUTH_/OAUTH_ 系を除去し、テスト入力（env_overrides）だけを効かせる。
     """
     env = os.environ.copy()
     for key in list(env):
-        if key.startswith("OAUTH_"):
+        if key.startswith(("AUTH_", "OAUTH_")):
             del env[key]
     env.update(env_overrides)
     return subprocess.run(
@@ -141,7 +142,12 @@ def test_empty_redirect_uri_falls_back_to_default(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "missing_var",
-    ["OAUTH_COOKIE_SECRET", "OAUTH_GOOGLE_CLIENT_ID", "OAUTH_GOOGLE_CLIENT_SECRET"],
+    [
+        "AUTH_ADMIN_EMAIL",
+        "OAUTH_COOKIE_SECRET",
+        "OAUTH_GOOGLE_CLIENT_ID",
+        "OAUTH_GOOGLE_CLIENT_SECRET",
+    ],
 )
 def test_missing_required_env_fails_fast(missing_var: str, tmp_path: Path) -> None:
     # 必須 env 欠落: 非ゼロ終了で fail-fast し、secrets.toml を生成しない。

@@ -37,8 +37,13 @@ toml_escape() {
     | awk 'BEGIN { ORS = "" } NR > 1 { printf "\\n" } { print }'
 }
 
-# 必須シークレットの欠如は弱い設定での起動を避けるため fail-fast で落とす。
-for var in OAUTH_COOKIE_SECRET OAUTH_GOOGLE_CLIENT_ID OAUTH_GOOGLE_CLIENT_SECRET; do
+# 必須 env の欠如は弱い設定での起動を避けるため fail-fast で落とす。
+# AUTH_ADMIN_EMAIL は secrets.toml には出力せずアプリが env から直接読む値だが、ここで
+# 併せて検証する。app.py の AuthConfig.from_env() による検証は Streamlit がスクリプトを
+# 走らせるセッション接続時に初めて発火し、それまでサーバー（ヘルスエンドポイント含む）は
+# 起動し続ける。AC-1 の「未設定なら起動時に停止」を満たすには exec "$@" の前＝この
+# entrypoint で落とす必要がある。
+for var in AUTH_ADMIN_EMAIL OAUTH_COOKIE_SECRET OAUTH_GOOGLE_CLIENT_ID OAUTH_GOOGLE_CLIENT_SECRET; do
   eval "value=\${${var}:-}"
   if [ -z "${value}" ]; then
     echo "render-secrets: 必須の環境変数 ${var} が未設定です。起動を中止します。" >&2
