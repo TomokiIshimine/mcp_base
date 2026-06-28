@@ -66,6 +66,11 @@ make setup
 | `MYSQL_DATABASE` | `app_db` | 必須 | データベース名 |
 | `MYSQL_ROOT_PASSWORD` | `root_password` | 必須 | `db` コンテナの初期化・ヘルスチェック用（compose のみで使用） |
 | `LOG_LEVEL` | `INFO` | 任意 | ログ出力レベル（`DEBUG` / `INFO` / `WARNING` / `ERROR`。未設定・不正値は `INFO`） |
+| `AUTH_ADMIN_EMAIL` | `admin@example.com` | 必須（app 起動時） | 認可する管理者の Google アカウント Email（完全一致照合） |
+| `OAUTH_GOOGLE_CLIENT_ID` | `REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID` | 必須（app 起動時） | GCP OAuth クライアント ID |
+| `OAUTH_GOOGLE_CLIENT_SECRET` | `REPLACE_WITH_GOOGLE_OAUTH_CLIENT_SECRET` | 必須（app 起動時） | GCP OAuth クライアントシークレット（秘匿） |
+| `OAUTH_COOKIE_SECRET` | `REPLACE_WITH_LONG_RANDOM_COOKIE_SECRET` | 必須（app 起動時） | Cookie 署名鍵。十分長いランダム文字列を用いる（秘匿） |
+| `OAUTH_REDIRECT_URI` | `http://localhost:8501/oauth2callback` | 任意（既定あり） | 認証後のリダイレクト先。GCP「承認済みのリダイレクト URI」に完全一致で登録する |
 
 接続先ホストは用途で異なる点に注意する。
 
@@ -91,6 +96,33 @@ make db-check
 ```
 
 `SELECT 1;` を `db` コンテナ内の MySQL に対して実行する。
+
+## 認証（OAuth2 / Google）
+
+アプリは管理者 1 名の Google アカウントのみ操作を許可する認証ゲートを備える（認証ゲートの画面・挙動は `docs/02_features.md` / `docs/03_screens.md` を参照）。運用上必要なのは (1) GCP OAuth クライアントの用意、(2) 認証用環境変数の設定（「環境変数」節）、(3) secrets の供給（方式 A）の 3 点。
+
+### GCP OAuth クライアントの用意
+
+GCP コンソールで OAuth 2.0 クライアント（種別: ウェブアプリケーション）を作成し、次を満たす。
+
+- クライアント ID / クライアントシークレットを発行し、それぞれ `OAUTH_GOOGLE_CLIENT_ID` / `OAUTH_GOOGLE_CLIENT_SECRET` に設定する。
+- 「承認済みのリダイレクト URI」に `OAUTH_REDIRECT_URI` と完全一致する値を登録する。固定パスは `/oauth2callback`。`localhost:8501` 公開ならローカル / Docker 共通で `http://localhost:8501/oauth2callback`。
+
+### secrets の供給（方式 A: entrypoint レンダリング）
+
+Streamlit の認証設定 `[auth]`（`client_id` / `client_secret` / `cookie_secret` / `redirect_uri`）は `.streamlit/secrets.toml` から読まれる。シークレットをイメージ層に焼き込まないため、コンテナ起動時に entrypoint `docker/render-secrets.sh`（`Dockerfile` の `ENTRYPOINT`）が env から `.streamlit/secrets.toml` の `[auth]` をレンダリングしてから `streamlit run`（`CMD`）を起動する。
+
+- `.streamlit/secrets.toml`（実体）は VCS 非追跡（`.gitignore`）。`.streamlit/secrets.toml.example` をプレースホルダで追跡する（`.env.example` 流儀と整合）。
+- Docker（`make run` 等）では env → `secrets.toml` の生成が自動。手で `secrets.toml` を置く必要はない。
+- ホストから直接 Streamlit を動かす場合のみ、`cp .streamlit/secrets.toml.example .streamlit/secrets.toml` でコピーし、プレースホルダを実値へ置き換える。
+- `OAUTH_COOKIE_SECRET` は Cookie 署名鍵。十分長いランダム文字列を用いる（短い・推測容易な値は署名の安全性を弱める）。
+
+### 起動時 fail-fast
+
+認証用環境変数の不備はアプリ起動時に停止し、CRUD 画面を描画しない。`docker-compose.yml` は認証用 env を `:-`（既定空文字）で補間するため、未設定でも `make test` 等の周辺サービスは巻き添えで停止せず、fail-fast は `app` 起動時のみ発火する（MySQL 資格情報の `:?` による compose 段階の停止とは挙動が異なる）。
+
+- `AUTH_ADMIN_EMAIL` 未設定・空文字 → `AuthConfig.from_env()` が `ConfigError` で停止する。
+- `OAUTH_GOOGLE_CLIENT_ID` / `OAUTH_GOOGLE_CLIENT_SECRET` / `OAUTH_COOKIE_SECRET` 未設定・空文字 → entrypoint `docker/render-secrets.sh` の必須検査が `secrets.toml` を生成せず起動を中止する。
 
 ## コード検査・テスト
 

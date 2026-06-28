@@ -1,6 +1,6 @@
 # mcp-base
 
-Clean Architecture 4 層で構成された Streamlit 製の greeting CRUD アプリ。MySQL に永続化した挨拶レコード（greeting）を Web 画面から作成・参照・更新・削除する。
+Clean Architecture 4 層で構成された Streamlit 製の greeting CRUD アプリ。MySQL に永続化した挨拶レコード（greeting）を Web 画面から作成・参照・更新・削除する。画面操作には Google アカウント（OAuth2）による管理者認証を要する。
 
 名称 `mcp-base` は将来 MCP（Model Context Protocol）サーバーとして実装する構想に由来する。現行実態（Streamlit greeting CRUD）との関係と将来構想は `docs/01_architecture.md` の「プロジェクトの位置づけ」を参照。
 
@@ -21,6 +21,8 @@ Clean Architecture 4 層で構成された Streamlit 製の greeting CRUD アプ
    ```sh
    cp .env.example .env
    ```
+
+   `.env` には MySQL 接続情報に加え、Google OAuth2 認証用の env（管理者 Email `AUTH_ADMIN_EMAIL` と `OAUTH_*` 一式）の設定が必須。未設定のまま起動すると認証ゲートが構成できず起動時に停止する（fail-fast）。各 env の一覧・取得値・GCP 側の設定手順は `docs/06_operations.md` を参照。
 
 2. アプリと MySQL を起動する。ブラウザで http://localhost:8501 を開く（停止は Ctrl-C）。
 

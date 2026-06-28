@@ -8,10 +8,10 @@
 |---|---|---|---|
 | `docs/00_documentation-map.md` | docs 体系全体の索引・責務境界・更新ポリシー（本ドキュメント） | 開発者・Claude Code 全エージェント | docs の追加・削除・責務変更時 |
 | `docs/01_architecture.md` | 4 層構成と現行ファイルの責務・依存方向の地図、プロジェクトの位置づけ | 開発者・Claude Code 全エージェント | 層構成・主要ファイル・依存方向の変更時 |
-| `docs/02_features.md` | 提供機能（greeting レコードの CRUD）の機能仕様 | 開発者・利用者 | 機能の追加・変更・廃止時 |
+| `docs/02_features.md` | 提供機能（greeting レコードの CRUD、Google OAuth2 ログイン・管理者 Email 認可）の機能仕様 | 開発者・利用者 | 機能の追加・変更・廃止時 |
 | `docs/03_screens.md` | Streamlit が描画する画面の一覧・役割・操作・遷移 | 開発者・利用者 | 画面・UI 操作の追加・変更時 |
 | `docs/04_data-design.md` | ドメインモデルと MySQL 永続化スキーマの設計 | 開発者 | ドメインモデル・テーブル定義・対応関係の変更時 |
-| `docs/05_e2e-tests.md` | 正常系 E2E 受入シナリオ一覧（受入条件） | 開発者・QA | 受入シナリオ・対応機能の変更時 |
+| `docs/05_e2e-tests.md` | E2E 受入シナリオ一覧（CRUD 正常系と、拒否分岐・起動時 fail-fast を含む認証ゲートの受入条件） | 開発者・QA | 受入シナリオ・対応機能の変更時 |
 | `docs/06_operations.md` | 起動・MySQL/Docker・環境変数・統合テストの運用手順 | 利用者・開発者 | 起動手順・運用資材・環境変数の変更時 |
 
 ## 読み順
