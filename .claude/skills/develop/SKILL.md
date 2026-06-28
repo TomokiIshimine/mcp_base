@@ -111,7 +111,7 @@ disable-model-invocation: true
    - 動作確認: `develop-runner` を 1 体（コードレビューと同一メッセージで並列）。
      - 引数: 実装差分 / `<workdir>/04_design.md` / `<requirement>` / `<iteration>`（現在の反復番号。runner が出力ファイルを決定論的に命名するために必須。`<output-path>` として具体化した `<workdir>/05_runtime-verification-<iteration>.md` を直接渡してもよい）。
      - 戻り値: `<workdir>/05_runtime-verification-<iteration>.md` ＋ 最終メッセージで `<絶対パス> PASS|FAIL`。
-     - 動作確認手段（1. `make test`（pytest。coder が TDD で追加・更新したテストを含む既存テスト一式を実行する。runner はテストを追加・更新しない） 2. UI/E2E は `make run` で Streamlit を起動し **Claude in Chrome（ブラウザ自動操作）で実操作**して、設計書 `04_design.md` のテスト設計セクションが今回の要件用に定めた受入シナリオに絞って検証する（`docs/05_e2e-tests.md` 全件は回さず、今回の `<requirement>` に対応するシナリオだけを動かす））。要件充足の確認に必要なテストが不足している場合は runner がテストを足さず FAIL の根拠として明記し、次周回で coder が補う。
+     - 動作確認手段（1. `make test`（pytest による軽量テスト。**DB 不要**。既定で実 MySQL を要する `integration` マーカー付きテストを除外する。coder が TDD で追加・更新したテストを含む既存テスト一式を実行する。runner はテストを追加・更新しない） 1'. **設計書（`04_design.md`）または実装差分が MySQL／永続化・インフラ層（`infrastructure` 層のリポジトリ・DB スキーマ・接続設定など）に触れる場合は `make test-integration`（実 MySQL を起動し `pytest -m integration` を実行する別ターゲット）も必須にする**（`make test` は `integration` マーカー付きテストを除外するため、これを省くと永続化のリグレッションが Step 5 を通過し PR 後の CI で初めて顕在化する。DB/インフラに触れない要件では `make test-integration` は不要） 2. UI/E2E は `make run` で Streamlit を起動し **Claude in Chrome（ブラウザ自動操作）で実操作**して、設計書 `04_design.md` のテスト設計セクションが今回の要件用に定めた受入シナリオに絞って検証する（`docs/05_e2e-tests.md` 全件は回さず、今回の `<requirement>` に対応するシナリオだけを動かす））。要件充足の確認に必要なテストが不足している場合は runner がテストを足さず FAIL の根拠として明記し、次周回で coder が補う。
      - **UI を伴う確認もブラウザ自動操作でワークフロー内で完結する。** ブラウザ自動操作が技術的に実施できない場合（アプリ起動不可・対象画面到達不可等）は、その原因を根拠に runner が `FAIL` を返す（次周回で実装係が対処）。
 3. **判定**:
    - 全コードレビュー観点 PASS かつ動作確認 PASS → ループ脱出（コミットへ）。
