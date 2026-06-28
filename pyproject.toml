@@ -6,7 +6,11 @@ requires-python = ">=3.12"
 # 脆弱性対応のため、直接依存はすべて厳密な == で固定する（再現性と監査性を優先）。
 # 推移的依存は uv.lock で固定。更新は意図的に == を引き上げて行う。
 dependencies = [
-    "streamlit==1.58.0",
+    # auth extra で Streamlit ネイティブ OIDC（st.login/st.user/st.logout）を有効化する。
+    "streamlit[auth]==1.58.0",
+    # streamlit[auth] が要求する OIDC ライブラリ（>=1.3.2）。監査性のため直接依存として
+    # == 固定する（1.58.0 と整合する解決結果に合わせて固定）。
+    "Authlib==1.7.2",
     "PyMySQL==1.2.0",
     "dbutils==3.1.2",
 ]
@@ -63,7 +67,7 @@ strict = true
 
 # 型スタブを提供しない外部ライブラリは import 解決の失敗を許容する。
 [[tool.mypy.overrides]]
-module = ["streamlit", "pymysql.*", "dbutils.*"]
+module = ["streamlit", "pymysql.*", "dbutils.*", "authlib.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
