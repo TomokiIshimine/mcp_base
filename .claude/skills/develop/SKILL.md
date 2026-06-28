@@ -57,8 +57,8 @@ disable-model-invocation: true
   1. `<requirement>` を確定する。**空文字の場合はまず `AskUserQuestion`（自由記述スロット）で開発したい機能・改修内容の本文をユーザーから取得し、それを `<requirement>` として保持する**（以降の Step 2〜7 はこの本文を参照するため、空のまま先へ進めない）。続いて確定した `<requirement>` の要約をケバブケース化して `<task-slug>` を導出する（`^[a-z0-9-]+$`・3〜40 文字）。slug は要件本文から導出し、slug 取得のためだけの単独ヒアリングは行わない。
   2. `<base-branch>`（現在ブランチ）を確認する。未コミット変更がある場合は `AskUserQuestion` で「中止／そのまま派生／一時停止（ユーザーのコミット完了後に再開）」を、未コミット変更ファイル数を質問文に含めて確認する。
   3. `workflow-init` を `workflow-name: <task-slug>` で起動し、`<workdir>`（絶対パス）を受領する。git 操作はメイン側で完結し `workflow-init` には渡さない。
-  4. `<base-branch>` から `<task-slug>` ブランチを派生作成する。同名既存時は `AskUserQuestion` で「既存ブランチへ切替／別名で作成／中止」を確認する。
-- 出力（内部保持）: `<task-slug>` / `<base-branch>` / `<workdir>`（絶対パス）。
+  4. `<base-branch>` から作業ブランチを派生作成する。既定の作業ブランチ名は `<task-slug>` とし、確定した実ブランチ名を `<work-branch>` として保持する。同名既存時は `AskUserQuestion` で「既存ブランチへ切替／別名で作成／中止」を確認し、別名で作成・既存ブランチへ切替を選んだ場合は実際に使用するブランチ名で `<work-branch>` を更新する（Step 7 の push・PR head はこの `<work-branch>` を使う。`<task-slug>` は `<workdir>` 命名に使った値として別に保持する）。
+- 出力（内部保持）: `<task-slug>` / `<work-branch>`（実際の作業ブランチ名。既定は `<task-slug>`）/ `<base-branch>` / `<workdir>`（絶対パス）。
 - 制約: git 操作はメイン側で完結。業務ロジックには立ち入らない。
 
 ## Step 2 — `<requirement>` 関連コードの調査（主体: `develop-surveyor`）
@@ -73,9 +73,9 @@ disable-model-invocation: true
 1. **論点抽出**: メインが `develop-requirements-author`（論点列挙モード）を起動する。
    - 引数: `<workdir>/02_survey.md` / `<requirement>`。
    - 戻り値: 仕様上の論点（最終メッセージ・ファイル化しない）。埋め込み済み項目・コードレビュー観点は論点に含まれない。
-2. **ヒアリング**: メインが戻り値を受け取り、`/user-hearing` の作法で各 Q を順次 `AskUserQuestion` で発火し、回答を `<workdir>/03_decisions.yaml` に記録する。
+2. **ヒアリング**: メインが戻り値を受け取り、`/user-hearing` の作法で各 Q を順次 `AskUserQuestion` で発火し、回答を `<workdir>/03_decisions.yaml` に記録する。論点が無く質問が発生しない場合も、空（または「論点なし」を明示した）`<workdir>/03_decisions.yaml` を必ず作成してから次の Write モードへ進む（Write モードは decisions ファイルの存在で起動が決まるため、未作成だと論点列挙モードへ誤分類される）。
 3. **要件定義書 Write**: メインが `develop-requirements-author`（Write モード）を再起動する。
-   - 引数: `<workdir>/02_survey.md` / `<workdir>/03_decisions.yaml`。
+   - 引数: `<requirement>` / `<workdir>/02_survey.md` / `<workdir>/03_decisions.yaml`（`<requirement>` を必ず渡す。decisions が副次的論点しか含まない・空の場合でも、ユーザーが本来求めた機能・受入条件を要件定義書へ反映できるようにするため）。
    - 戻り値: `<workdir>/03_requirements.md`。
 4. **承認**: メインが `/proposal-design-cycle` のオーケストレーター契約に従い approval ゲートを実施する。限定 Read で `03_requirements.md` の `## 要件サマリ` のみ提示し、1 通の `AskUserQuestion`（承認／修正要望）。修正要望時は `develop-requirements-author` を revise 起動（`design-doc-path: <workdir>/03_requirements.md` ＋ `modification-request`）し、承認まで反復する。
 - 出力: `<workdir>/03_decisions.yaml` / `<workdir>/03_requirements.md`。
@@ -89,7 +89,7 @@ disable-model-invocation: true
 2. **設計論点抽出**: メインが `develop-design-author`（論点列挙モード）を起動する。
    - 引数: `<workdir>/03_requirements.md` / `<workdir>/02_survey.md` / `<workdir>/04_best-practices.md`。
    - 戻り値: 設計不明点の論点（最終メッセージ・ファイル化しない）。各論点にベストプラクティス調査の出典参照が添えられる。新規パッケージ採否が論点になった場合はそれも含む（不要な要件では採否論点が出ないことを許容）。
-3. **ヒアリング**: メインが戻り値を受け取り、`/user-hearing` の作法で各 Q を順次発火し、回答を `<workdir>/04_decisions.yaml` に記録する。
+3. **ヒアリング**: メインが戻り値を受け取り、`/user-hearing` の作法で各 Q を順次発火し、回答を `<workdir>/04_decisions.yaml` に記録する。設計論点が無く質問が発生しない場合も、空（または「論点なし」を明示した）`<workdir>/04_decisions.yaml` を必ず作成してから次の Write モードへ進む（Write モードは decisions ファイルの存在で起動が決まるため）。
 4. **設計書 Write**: メインが `develop-design-author`（Write モード）を再起動する。
    - 引数: `<workdir>/03_requirements.md` / `<workdir>/02_survey.md` / `<workdir>/04_best-practices.md` / `<workdir>/04_decisions.yaml`。
    - 戻り値: `<workdir>/04_design.md`（冒頭に領域定義セクションを必ず含む。埋め込み済み領域分割から本要件で扱う層を選択）。設計書にはテスト設計セクション（要件の受入条件に対応する E2E 受入シナリオ＋ユニットテスト観点）を含める。本フローは実装をテスト駆動とするため、テスト設計は設計工程で確定する。
@@ -134,21 +134,21 @@ disable-model-invocation: true
 
 ## Step 7 — PR 作成（主体: メイン ＋ `develop-pr-author`）
 
-- メインが Step 6 までのコミット（ドキュメント更新分を含む）を `git push -u origin <task-slug>` でリモートへ push する。
+- メインが Step 6 までのコミット（ドキュメント更新分を含む）を `git push -u origin <work-branch>` でリモートへ push する。
 - メインが `develop-pr-author` を起動する。
-  - 引数: 要件定義書・設計書・実装変更点・レビュー結果・動作確認結果の各絶対パス / `<base-branch>` / `<task-slug>`。
+  - 引数: 要件定義書・設計書・実装変更点・レビュー結果・動作確認結果の各絶対パス / `<base-branch>` / `<work-branch>`。
   - 戻り値: 作成された PR の URL。
-  - 責務: PR タイトル・本文を組み立て `gh pr create --base <base-branch> --head <task-slug>` で PR を作成。Step 5 改善ループが上限到達で「継続」を選んだ場合は残課題を PR 本文末尾に明記する。
+  - 責務: PR タイトル・本文を組み立て `gh pr create --base <base-branch> --head <work-branch>` で PR を作成。Step 5 改善ループが上限到達で「継続」を選んだ場合は残課題を PR 本文末尾に明記する。
 - メインは `develop-pr-author` 完了後、作成された PR の URL と簡潔な概要をテキストで提示してワークフローを終了する。
 
 ## git 操作のタイミング（develop 固有）
 
 | タイミング | 操作 | 主体 | 備考 |
 |---|---|---|---|
-| Step 1 | 作業ブランチ作成 | メイン | `<base-branch>` から `<task-slug>` を派生 |
+| Step 1 | 作業ブランチ作成 | メイン | `<base-branch>` から作業ブランチを派生し実ブランチ名を `<work-branch>` に保持（既定 `<task-slug>`） |
 | Step 5 末尾 | 実装差分コミット | メイン | 粒度（単一コミット／機能単位で分割）とメッセージは `AskUserQuestion` で確認 |
 | Step 6 末尾 | ドキュメント更新差分コミット | メイン | 粒度・メッセージのヒアリング方法は Step 5 末尾と同じ |
-| Step 7 冒頭 | push | メイン | `git push -u origin <task-slug>` |
+| Step 7 冒頭 | push | メイン | `git push -u origin <work-branch>` |
 
 **NEVER** 承認なしのブランチ削除・force 系オプション・`-D` 等の破壊的 git 操作。改善ループ中止・反復上限到達時の中止判断時も、作業ブランチはローカルに保持する。
 
