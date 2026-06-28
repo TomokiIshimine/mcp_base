@@ -26,11 +26,15 @@ _NOOP_COMMAND = ["sh", "-c", "exit 0"]
 _DEFAULT_REDIRECT_URI = "http://localhost:8501/oauth2callback"
 
 
+# cookie_secret は entrypoint が最低 32 文字を要求するため、正常 env では十分長い値を使う。
+_VALID_COOKIE_SECRET = "cookie-secret-value-0123456789abcdef"
+
+
 def _valid_env() -> dict[str, str]:
     """必須 env（AUTH_ADMIN_EMAIL ＋ OAUTH_*）が揃った最小の正常 env。"""
     return {
         "AUTH_ADMIN_EMAIL": "admin@example.com",
-        "OAUTH_COOKIE_SECRET": "cookie-secret-value",
+        "OAUTH_COOKIE_SECRET": _VALID_COOKIE_SECRET,
         "OAUTH_GOOGLE_CLIENT_ID": "client-id-value",
         "OAUTH_GOOGLE_CLIENT_SECRET": "client-secret-value",
         "OAUTH_REDIRECT_URI": _DEFAULT_REDIRECT_URI,
@@ -72,7 +76,7 @@ def test_normal_values_round_trip(tmp_path: Path) -> None:
     # 正常系: 通常値がそのまま [auth] / [auth.google] に展開される。
     data = _render_and_parse(_valid_env(), tmp_path)
     assert data["auth"]["redirect_uri"] == _DEFAULT_REDIRECT_URI
-    assert data["auth"]["cookie_secret"] == "cookie-secret-value"
+    assert data["auth"]["cookie_secret"] == _VALID_COOKIE_SECRET
     assert data["auth"]["google"]["client_id"] == "client-id-value"
     assert data["auth"]["google"]["client_secret"] == "client-secret-value"
     assert (
@@ -113,10 +117,12 @@ def test_backslash_and_quote_together_round_trip(tmp_path: Path) -> None:
 
 def test_newline_in_value_folds_to_single_string(tmp_path: Path) -> None:
     # 異常値 改行: \n 畳み込みで単一文字列値として原文復元する（生改行による文法破壊防止）。
+    # 最低長(32)を満たしつつ改行を含む値で検証する。
+    multiline_secret = "line1\nline2\nline3-padding-0123456789ab"
     env = _valid_env()
-    env["OAUTH_COOKIE_SECRET"] = "line1\nline2\nline3"
+    env["OAUTH_COOKIE_SECRET"] = multiline_secret
     data = _render_and_parse(env, tmp_path)
-    assert data["auth"]["cookie_secret"] == "line1\nline2\nline3"
+    assert data["auth"]["cookie_secret"] == multiline_secret
 
 
 def test_injection_attempt_cannot_create_extra_key(tmp_path: Path) -> None:
@@ -163,6 +169,37 @@ def test_empty_required_env_fails_fast(tmp_path: Path) -> None:
     # 空文字 env も未設定と同様に fail-fast する（弱い設定での起動を防ぐ）。
     env = _valid_env()
     env["OAUTH_COOKIE_SECRET"] = ""
+    result = _run_render(env, tmp_path)
+    assert result.returncode != 0
+    assert "OAUTH_COOKIE_SECRET" in result.stderr
+    assert not (tmp_path / ".streamlit" / "secrets.toml").exists()
+
+
+@pytest.mark.parametrize(
+    ("var", "placeholder"),
+    [
+        ("OAUTH_COOKIE_SECRET", "REPLACE_WITH_LONG_RANDOM_COOKIE_SECRET"),
+        ("OAUTH_GOOGLE_CLIENT_ID", "REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID"),
+        ("OAUTH_GOOGLE_CLIENT_SECRET", "REPLACE_WITH_GOOGLE_OAUTH_CLIENT_SECRET"),
+    ],
+)
+def test_placeholder_value_fails_fast(
+    var: str, placeholder: str, tmp_path: Path
+) -> None:
+    # .env.example のプレースホルダ（REPLACE_WITH_*）のままの起動を拒否する。
+    # 非空なので空チェックは素通しするが、既知の公開値での起動を防ぐ。
+    env = _valid_env()
+    env[var] = placeholder
+    result = _run_render(env, tmp_path)
+    assert result.returncode != 0
+    assert var in result.stderr
+    assert not (tmp_path / ".streamlit" / "secrets.toml").exists()
+
+
+def test_short_cookie_secret_fails_fast(tmp_path: Path) -> None:
+    # 署名鍵が短すぎる（32 文字未満）と Cookie 偽造耐性が弱いため起動を拒否する。
+    env = _valid_env()
+    env["OAUTH_COOKIE_SECRET"] = "short-secret"  # 12 文字
     result = _run_render(env, tmp_path)
     assert result.returncode != 0
     assert "OAUTH_COOKIE_SECRET" in result.stderr
