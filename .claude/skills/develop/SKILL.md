@@ -93,7 +93,7 @@ disable-model-invocation: true
 3. **ヒアリング**: メインが戻り値を受け取り、`/user-hearing` の作法で各 Q を順次発火し、回答を `<workdir>/04_decisions.yaml` に記録する。
 4. **設計書 Write**: メインが `develop-design-author`（Write モード）を再起動する。
    - 引数: `<workdir>/03_requirements.md` / `<workdir>/02_survey.md` / `<workdir>/04_best-practices.md` / `<workdir>/04_decisions.yaml`。
-   - 戻り値: `<workdir>/04_design.md`（冒頭に領域定義セクションを必ず含む。埋め込み済み領域分割から本要件で扱う層を選択）。
+   - 戻り値: `<workdir>/04_design.md`（冒頭に領域定義セクションを必ず含む。埋め込み済み領域分割から本要件で扱う層を選択）。設計書にはテスト設計セクション（要件の受入条件に対応する E2E 受入シナリオ＋ユニットテスト観点）を含める。本フローは実装をテスト駆動とするため、テスト設計は設計工程で確定する。
 5. **承認**: メインが approval ゲートを実施する。限定 Read で `04_design.md` の `## 設計サマリ` / `## 領域定義` のみ提示し、1 通の `AskUserQuestion`（承認／修正要望）。修正要望時は `develop-design-author` を revise 起動し、承認まで反復する。
 - 出力: `<workdir>/04_best-practices.md` / `<workdir>/04_decisions.yaml` / `<workdir>/04_design.md`。
 
@@ -101,18 +101,18 @@ disable-model-invocation: true
 
 `<iteration>` を 1 から始めるループを回す（`/multi-aspect-review` 構成）。各周回で以下を実施する。
 
-1. **実装**: メインが `04_design.md` 冒頭の領域定義セクションを参照し、領域ごとに対応する coder を spawn する。本プロジェクトは単一領域のため `develop-coder` を 1 体 spawn する。
+1. **実装（テスト駆動）**: メインが `04_design.md` 冒頭の領域定義セクションを参照し、領域ごとに対応する coder を spawn する。本プロジェクトは単一領域のため `develop-coder` を 1 体 spawn する。coder は設計書のテスト設計セクションに対応するテスト（ユニット・E2E）をプロダクションコードと併せて追加・更新する。テストの追加・更新は coder の責務であり、後段で並列実行される runner はテストを追加せず実行のみを担う（並列レビュー中にリポジトリファイルが変化して reviewer の点検対象とズレる・worktree が競合する事態を防ぐため）。
    - 引数: `<workdir>/04_design.md`（再実装時は併せて FAIL 指摘レポートの絶対パス群）。
-   - 戻り値: 実装差分。
+   - 戻り値: 実装差分（プロダクションコード＋テストコード）。
 2. **コードレビューと動作確認の並列実行**: メインが **単一メッセージ内に複数の `Agent` 呼び出しを並べて並列 spawn** する。
    - コードレビュー: 固定 6 観点それぞれに `develop-reviewer` を 1 体ずつ並列 spawn（合計 6 体）。
-     - 各引数: 実装差分 / `<workdir>/04_design.md` / `<workdir>/03_requirements.md` / `<aspect>`。
+     - 各引数: 実装差分 / `<workdir>/04_design.md` / `<workdir>/03_requirements.md` / `<aspect>` / `<iteration>`（現在の反復番号。reviewer が出力ファイルを決定論的に命名するために必須。`<output-path>` として具体化した `<workdir>/05_review-<iteration>_<aspect>.md` を直接渡してもよい。2 周目以降は併せて前周回レポート `<workdir>/05_review-<iteration-1>_<aspect>.md` の絶対パスを `previous-review-path` として渡す）。
      - 各戻り値: `<workdir>/05_review-<iteration>_<aspect>.md` ＋ 最終メッセージで `<絶対パス> PASS|FAIL`。
      - 固定 6 観点（順序が API。並び替え・カスタマイズ不可）: `requirement-fidelity` / `architecture-fidelity` / `security` / `performance` / `readability` / `test-coverage`。
    - 動作確認: `develop-runner` を 1 体（コードレビューと同一メッセージで並列）。
      - 引数: 実装差分 / `<workdir>/04_design.md` / `<requirement>` / `<iteration>`（現在の反復番号。runner が出力ファイルを決定論的に命名するために必須。`<output-path>` として具体化した `<workdir>/05_runtime-verification-<iteration>.md` を直接渡してもよい）。
      - 戻り値: `<workdir>/05_runtime-verification-<iteration>.md` ＋ 最終メッセージで `<絶対パス> PASS|FAIL|MANUAL`。
-     - 動作確認は自動化手段を優先（1. `make test`（pytest） 2. E2E 受入シナリオ `docs/05_e2e-tests.md`。MCP server は未実装のため利用不可）。自動化不可時のみ手動シナリオ手順書を Write し `MANUAL` を返す。
+     - 動作確認は自動化手段を優先（1. `make test`（pytest。coder が TDD で追加・更新したテストを含む既存テスト一式を実行する。runner はテストを追加・更新しない） 2. E2E 受入シナリオ `docs/05_e2e-tests.md`。MCP server は未実装のため利用不可）。要件充足の確認に必要なテストが不足している場合は runner がテストを足さず FAIL の根拠として明記し、次周回で coder が補う。自動化不可時のみ手動シナリオ手順書を Write し `MANUAL` を返す。
      - `MANUAL` が返った場合: メインが限定 Read で `05_runtime-verification-<iteration>.md` の `## 手動確認シナリオ` を提示し、`AskUserQuestion` でユーザーの実行結果（PASS/FAIL ＋観察事項）を取得。`develop-runner` を再起動してレポート末尾に追記させ PASS/FAIL を確定する。
 3. **判定**:
    - 全コードレビュー観点 PASS かつ動作確認 PASS → ループ脱出（コミットへ）。
