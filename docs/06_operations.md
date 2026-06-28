@@ -70,7 +70,11 @@ make setup
 接続先ホストは用途で異なる点に注意する。
 
 - Docker Compose 上で起動する場合（`make run` 等）: `MYSQL_HOST=db` / `MYSQL_PORT=3306`（コンテナ間はサービス名 `db` で通信）。`.env.example` の既定値はこの構成。
-- ホストから直接 Streamlit を動かす場合: `.env` を使わず `MYSQL_HOST` を未設定（既定 `127.0.0.1`）にするか、`MYSQL_HOST=127.0.0.1` / `MYSQL_PORT=3307` に書き換える（`3307` は compose が publish するホスト側ポート）。
+- ホストから直接 Streamlit を動かす場合: `MYSQL_HOST` / `MYSQL_PORT` は未設定でもローカル既定値（`127.0.0.1:3306`）にフォールバックするが、`MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_DATABASE` は未設定・空文字だと起動時に `ConfigError` で停止する（fail-fast）。次のいずれかで起動する。
+  - (a) `.env` を読み込んだうえで host/port のみ上書きする（例: `MYSQL_HOST=127.0.0.1 MYSQL_PORT=3307`。資格情報・DB 名は `.env` の値を使う）。
+  - (b) `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_DATABASE` を含む必要な環境変数をすべて渡す。
+
+  `3307` は compose が publish するホスト側ポート。
 
 ## MySQL（Docker）
 
