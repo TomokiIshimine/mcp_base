@@ -173,6 +173,7 @@ class _FakeStreamlit:
         self.user = user
         self._button_returns = button_returns
         self.login_called = False
+        self.login_provider: str | None = None
         self.logout_called = False
         self.titles: list[str] = []
         self.infos: list[str] = []
@@ -192,8 +193,9 @@ class _FakeStreamlit:
         self.button_labels.append(label)
         return self._button_returns
 
-    def login(self) -> None:
+    def login(self, provider: str | None = None) -> None:
         self.login_called = True
+        self.login_provider = provider
 
     def logout(self) -> None:
         self.logout_called = True
@@ -300,6 +302,8 @@ def test_render_login_triggers_login_only_when_pressed(monkeypatch, pressed):
     assert fake.titles == ["ログインが必要です"]
     assert fake.infos  # 案内文を提示する
     assert fake.login_called is pressed
+    # 名前付きプロバイダ [auth.google] を起動するため "google" を渡す（引数なしは不可）。
+    assert fake.login_provider == ("google" if pressed else None)
 
 
 @pytest.mark.parametrize("pressed", [True, False])

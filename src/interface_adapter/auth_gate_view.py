@@ -118,7 +118,10 @@ def _render_login() -> None:
     st.title("ログインが必要です")
     st.info("この画面の利用には管理者 Google アカウントでのログインが必要です。")
     if st.button("Google でログイン"):
-        st.login()
+        # secrets は名前付きプロバイダ [auth.google] で構成する（render-secrets.sh）。
+        # 引数なし st.login() は [auth] 直下のみを読むため Google フローを起動できない。
+        # プロバイダ名 "google" は生成される secrets の [auth.google] と一致させる。
+        st.login("google")
 
 
 def _render_denied() -> None:

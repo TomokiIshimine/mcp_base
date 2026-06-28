@@ -14,3 +14,6 @@ htmlcov
 coverage.xml
 db/data
 .env
+# ホストの実シークレットをイメージ層へ焼き込まない。secrets.toml は起動時に
+# entrypoint（render-secrets.sh）が env から生成するため build context へ含めない。
+.streamlit/secrets.toml
