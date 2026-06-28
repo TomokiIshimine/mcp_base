@@ -28,7 +28,7 @@ disable-model-invocation: true
 | アーキテクチャ概要 | Clean Architecture 4 層（`domain` / `usecase` / `interface_adapter` / `infrastructure`）。依存方向 `interface_adapter → usecase → domain`、`infrastructure → usecase(ポート)・domain`。具象結線は合成ルート `src/app.py` に集約（依存性逆転）。 |
 | 既存規約 | `.claude/rules/`（常時ロード `00-common.md` ＋層別 05〜60）。ruff（format/lint）・mypy strict・bandit。ユビキタス言語 `greeting` を全層統一。新規ファイル作成前に対応層別規約を読む。PostToolUse フック `format-and-check.sh` が `Edit|Write|MultiEdit` で発火。 |
 | 領域分割の前提 | 単一領域（backend/frontend/infra の物理分割なし）。Clean Architecture 4 層を持つ単一 Python パッケージ。分割軸は「層」のみで、層は単一 coder 内で扱える。 |
-| 動作確認手段 | 最優先: `make test`（pytest・カバレッジ計測あり）。UI/E2E は `make run` で Streamlit を起動し **Claude in Chrome（`claude-in-chrome` ブラウザ自動操作）で実ブラウザを操作**して受入シナリオ（`docs/05_e2e-tests.md`）を検証。UI を伴う確認もブラウザ自動操作でワークフロー内で完結する（判定は PASS/FAIL の二値）。プロジェクト固有の MCP server は未実装。 |
+| 動作確認手段 | 最優先: `make test`（pytest・カバレッジ計測あり）。UI/E2E は `make run` で Streamlit を起動し **Claude in Chrome（`claude-in-chrome` ブラウザ自動操作）で実ブラウザを操作**して、設計書 `04_design.md` のテスト設計セクションが今回の要件用に定めた受入シナリオに絞って検証（`docs/05_e2e-tests.md` 全件は回さない）。UI を伴う確認もブラウザ自動操作でワークフロー内で完結する（判定は PASS/FAIL の二値）。プロジェクト固有の MCP server は未実装。 |
 | ドキュメント所在 | `docs/`（索引 `docs/00_documentation-map.md`・01〜06）／`README.md`／`CLAUDE.md`／`.claude/rules/`。 |
 
 ## 共通契約への準拠
@@ -111,7 +111,7 @@ disable-model-invocation: true
    - 動作確認: `develop-runner` を 1 体（コードレビューと同一メッセージで並列）。
      - 引数: 実装差分 / `<workdir>/04_design.md` / `<requirement>` / `<iteration>`（現在の反復番号。runner が出力ファイルを決定論的に命名するために必須。`<output-path>` として具体化した `<workdir>/05_runtime-verification-<iteration>.md` を直接渡してもよい）。
      - 戻り値: `<workdir>/05_runtime-verification-<iteration>.md` ＋ 最終メッセージで `<絶対パス> PASS|FAIL`。
-     - 動作確認手段（1. `make test`（pytest。coder が TDD で追加・更新したテストを含む既存テスト一式を実行する。runner はテストを追加・更新しない） 2. UI/E2E は `make run` で Streamlit を起動し **Claude in Chrome（ブラウザ自動操作）で実操作**して受入シナリオ `docs/05_e2e-tests.md` を検証）。要件充足の確認に必要なテストが不足している場合は runner がテストを足さず FAIL の根拠として明記し、次周回で coder が補う。
+     - 動作確認手段（1. `make test`（pytest。coder が TDD で追加・更新したテストを含む既存テスト一式を実行する。runner はテストを追加・更新しない） 2. UI/E2E は `make run` で Streamlit を起動し **Claude in Chrome（ブラウザ自動操作）で実操作**して、設計書 `04_design.md` のテスト設計セクションが今回の要件用に定めた受入シナリオに絞って検証する（`docs/05_e2e-tests.md` 全件は回さず、今回の `<requirement>` に対応するシナリオだけを動かす））。要件充足の確認に必要なテストが不足している場合は runner がテストを足さず FAIL の根拠として明記し、次周回で coder が補う。
      - **UI を伴う確認もブラウザ自動操作でワークフロー内で完結する。** ブラウザ自動操作が技術的に実施できない場合（アプリ起動不可・対象画面到達不可等）は、その原因を根拠に runner が `FAIL` を返す（次周回で実装係が対処）。
 3. **判定**:
    - 全コードレビュー観点 PASS かつ動作確認 PASS → ループ脱出（コミットへ）。
