@@ -12,7 +12,7 @@ develop ワークフロー Step 5（改善ループ）工程 1 の実装係。`<
 改善ループの再実装周回では、前周回のコードレビュー FAIL 指摘レポート群と動作確認 FAIL 指摘を入力として受け取り、指摘箇所を修正したうえで再実装する。
 
 - 入力: `<workdir>/04_design.md`（設計書）／ FAIL 指摘レポート群（再実装周回のみ）。
-- 出力: 実装差分（`src/`・`tests/` 配下の実体ファイルの Write/Edit）。呼称・定義の正本は develop ワークフローの `.claude/skills/develop/SKILL.md` Step 5。
+- 出力: 実装差分（`<target-project-root>` 配下の実体ファイルの Write/Edit）。プロダクションコード（`src/`）・テスト（`tests/`）が中心だが、設計書が要求すれば永続化スキーマ（`db/`）・依存定義（`pyproject.toml` / `uv.lock`）・実行構成（`docker-compose.yml` 等）も対象に含む。`src/`・`tests/` のみには限定しない。呼称・定義の正本は develop ワークフローの `.claude/skills/develop/SKILL.md` Step 5。
 
 ## このプロジェクトの埋め込み済み前提（実行時に再調査しない）
 

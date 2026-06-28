@@ -106,7 +106,7 @@ disable-model-invocation: true
    - 戻り値: 実装差分（プロダクションコード＋テストコード）。
 2. **コードレビューと動作確認の並列実行**: メインが **単一メッセージ内に複数の `Agent` 呼び出しを並べて並列 spawn** する。
    - コードレビュー: 固定 6 観点それぞれに `develop-reviewer` を 1 体ずつ並列 spawn（合計 6 体）。
-     - 各引数: 実装差分 / `<workdir>/04_design.md` / `<workdir>/03_requirements.md` / `<aspect>` / `<iteration>`（現在の反復番号。reviewer が出力ファイルを決定論的に命名するための正規の渡し方。出力先を明示固定したい場合の代替として `<output-path>` に具体化した `<workdir>/05_review-<iteration>_<aspect>.md` を直接渡してよい。2 周目以降は併せて前周回レポート `<workdir>/05_review-<iteration-1>_<aspect>.md` の絶対パスを `previous-review-path` として渡す）。
+     - 各引数: 実装差分 / `<workdir>/04_design.md` / `<workdir>/03_requirements.md` / `<aspect>` / `<output-path>`（メインが `<workdir>/05_review-<iteration>_<aspect>.md` を具体化して渡すレビューレポート書き出し先絶対パス。`develop-reviewer` は `/multi-aspect-review` 契約に従いこの `output-path` に Write する。2 周目以降は併せて前周回レポート `<workdir>/05_review-<iteration-1>_<aspect>.md` の絶対パスを `previous-review-path` として渡す）。
      - 各戻り値: `<workdir>/05_review-<iteration>_<aspect>.md` ＋ 最終メッセージで `<絶対パス> PASS|FAIL`。
      - 固定 6 観点（spawn する順序が API。並び替え・カスタマイズ不可）: `requirement-fidelity` / `architecture-fidelity` / `security` / `performance` / `readability` / `test-coverage`。各観点の点検基準・判定定義の正本は `develop-reviewer` にあり、本スキルは spawn 対象としてこの 6 観点を列挙するのみで定義を再掲しない。
    - 動作確認: `develop-runner` を 1 体（コードレビューと同一メッセージで並列）。
