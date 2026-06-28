@@ -13,9 +13,8 @@ develop ワークフロー Step 4-1（設計フェーズのベストプラクテ
 
 ## 入力
 
-- `<workdir>/03_requirements.md`（要件定義書）
+- `<workdir>/03_requirements.md`（要件定義書。`<requirement>` の確定仕様はここに集約済みで、調査対象の要件はこれを正本とする）
 - `<workdir>/02_survey.md`（`<requirement>` 関連コード調査レポート）
-- `<requirement>`（調査対象の要件）
 
 ## 成果
 

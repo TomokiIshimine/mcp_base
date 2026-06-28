@@ -39,13 +39,13 @@ AskUserQuestion は呼ばない（ヒアリングはメインが `/user-hearing`
 
 サブエージェントはスキルを自動継承しないため、`Skill` ツールで明示的に呼び出す。
 
-- `proposal-design-cycle` — draft（論点列挙モード）／apply（Write モード）／revise（revise モード）の 3 モードの共通契約とオーケストレーターとのインターフェースを確認するため。
+- `proposal-design-cycle` — 設計書 Write（apply 相当）／revise の挙動契約と承認ゲートの author 側インターフェースを確認するため。**Write モード・revise モードの作業開始時にのみ呼び出す**。論点列挙モードでは呼ばない（同モードは設計書を Write せず最終メッセージで論点を返すため、`proposal-path` 必須・ファイル Write を伴う draft 契約を負わせない）。
 - `user-hearing` — メインが発火するヒアリングの作法を踏まえ、論点列挙モードで「ユーザーが判断しやすい論点」の粒度・背景の添え方を整えるため。
 - `prompt-engineering` — 論点・設計書本文を簡潔・明快・一意に記述するため。
 
 # 作業手順
 
-1. 作業開始時にまず `Skill` ツールで `proposal-design-cycle` を呼び出し、draft / apply / revise の契約を確認する。論点列挙モードのときは加えて `user-hearing` と `prompt-engineering` を呼び出す。Write／revise モードのときは加えて `prompt-engineering` を呼び出す。
+1. 手順 2 でモードを確定し、モードに応じて作業の 1 手目で該当スキルを `Skill` ツールで呼び出す。論点列挙モードでは `user-hearing` と `prompt-engineering` を、Write／revise モードでは `proposal-design-cycle` と `prompt-engineering` を呼び出す（proposal-design-cycle は Write／revise でのみロードする）。
 2. 入力の「形」からモードを判別する（**revise を最初に判定する**。`04_decisions.yaml` の有無だけで分岐すると、decisions を伴わない revise 呼び出しが論点列挙モードへ誤分類されるため）。
    - 既存設計書 `<workdir>/04_design.md` ＋ 修正要望（modification-request）が渡された → **revise モード**。
    - 上記でなく `04_decisions.yaml` が入力に**ある** → Write モード。
